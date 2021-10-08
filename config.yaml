@@ -1,0 +1,9 @@
+interval: 1m
+startHeight: 13351082
+databaseURL: ""
+aggregatorPairs:
+  0xae74faa92cb67a95ebcab07358bc222e33a34da7: 0xc4A29a94f12be03033daa4e6Ce9b9678c26275a2
+sourceClientURL: ""
+targetClientURL: ""
+targetChainID: 4690
+privateKey: ""
