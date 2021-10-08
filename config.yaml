@@ -4,6 +4,6 @@ databaseURL: ""
 aggregatorPairs:
   0xae74faa92cb67a95ebcab07358bc222e33a34da7: 0xc4A29a94f12be03033daa4e6Ce9b9678c26275a2
 sourceClientURL: ""
-targetClientURL: ""
+targetClientURL: "https://babel-api.testnet.iotex.io"
 targetChainID: 4690
 privateKey: ""
