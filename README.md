@@ -7,6 +7,7 @@ Chainlink Relayer instantly relays Chainlink price feeds on Ethereum to IoTeX ne
 ## Aggregators
 For each aggregator on Ethereum, we will create a shadow aggregator on IoTeX. 
 
+**IoTeX Testnet**
 The table below lists the shadow aggregators deployed on IoTeX testnet:
 |Pair |Dec|Aggregator|Shadow Aggregator|
 |----|----|----|----|
@@ -16,6 +17,10 @@ The table below lists the shadow aggregators deployed on IoTeX testnet:
 |USDC/USD|8|[0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6](https://etherscan.io/address/0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6)|[0xB1aa8c29d96720A80AFe9e3F6CD48822D27C8d54](https://iotexscan.io/address/0xB1aa8c29d96720A80AFe9e3F6CD48822D27C8d54)|
 |USDT/USD|8|[0x3E7d1eAB13ad0104d2750B8863b489D65364e32D](https://etherscan.io/address/0x3E7d1eAB13ad0104d2750B8863b489D65364e32D)|[0x63Bd61A642d1f3dbf1f47006AC03CD7e7eb72f63](https://iotexscan.io/address/0x63Bd61A642d1f3dbf1f47006AC03CD7e7eb72f63)|
 |DAI/USD|8|[0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9](https://etherscan.io/address/0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9)|[0x9673b1b3fbB96E24f1C1AB40421Db9465f0f1151](https://iotexscan.io/address/0x9673b1b3fbB96E24f1C1AB40421Db9465f0f1151)|
+
+**IoTeX Mainnet**
+
+We are actively testing the testnet deployment as shown above. We will deploy the relayed data to mainnet very soon. Let us know your need.
 
 ## Run a Relayer
 ### Prepare Config File
