@@ -18,3 +18,7 @@ sourceClientURL: ""
 targetClientURL: "https://babel-api.testnet.iotex.io"
 targetChainID: 4690
 privateKey: ""
+
+# 0.5% deviration or 1 hour
+# https://api.coinbase.com/v2/exchange-rates?currency=IOTX
+# https://api.binance.com/api/v3/ticker/price?symbol=IOTXUSDT

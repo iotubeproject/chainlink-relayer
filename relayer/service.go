@@ -61,7 +61,7 @@ func NewService(
 	for origin, shadow := range aggregatorPairs {
 		pairs[common.HexToAddress(origin)] = common.HexToAddress(shadow)
 	}
-	relayer, err := NewRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetClient)
+	relayer, err := NewContractRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetClient)
 	if err != nil {
 		return nil, err
 	}
