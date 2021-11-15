@@ -87,19 +87,26 @@ func (recorder *Recorder) Fail(id uint) error {
 	return recorder.updateStatus(id, Failed)
 }
 
-func (recorder *Recorder) RoundsToConfirm() ([]*Round, error) {
-	return recorder.roundsByStatus(Relayed)
+func (recorder *Recorder) RoundsToConfirm(aggregators ...string) ([]*Round, error) {
+	return recorder.roundsByStatus(Relayed, aggregators...)
 }
 
-func (recorder *Recorder) RoundsToRelay() ([]*Round, error) {
-	return recorder.roundsByStatus(New)
+func (recorder *Recorder) RoundsToRelay(aggregators ...string) ([]*Round, error) {
+	return recorder.roundsByStatus(New, aggregators...)
 }
 
-func (recorder *Recorder) roundsByStatus(status string) ([]*Round, error) {
+func (recorder *Recorder) roundsByStatus(status string, aggregators ...string) ([]*Round, error) {
 	rounds := []*Round{}
-	if result := recorder.db.Table("rounds").Where("status = ?", status).Order("rounds.number asc").Find(&rounds); result.Error != nil {
+	tx := recorder.db.Table("rounds")
+	if len(aggregators) == 0 {
+		tx = tx.Where("status = ?", status)
+	} else {
+		tx = tx.Where("status = ? AND aggregator in ?", status, aggregators)
+	}
+	if result := tx.Order("rounds.number asc").Find(&rounds); result.Error != nil {
 		return nil, result.Error
 	}
+
 	return rounds, nil
 }
 

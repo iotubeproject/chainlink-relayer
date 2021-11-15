@@ -119,11 +119,15 @@ func (relayer *Relayer) Produce(ctx context.Context) error {
 }
 
 func (relayer *Relayer) Consume(ctx context.Context) error {
-	roundsToConfirm, err := relayer.recorder.RoundsToConfirm()
+	aggregators := []string{}
+	for aggregator := range relayer.shadowAggregators {
+		aggregators = append(aggregators, aggregator.String())
+	}
+	roundsToConfirm, err := relayer.recorder.RoundsToConfirm(aggregators...)
 	if err != nil {
 		return err
 	}
-	roundsToRelay, err := relayer.recorder.RoundsToRelay()
+	roundsToRelay, err := relayer.recorder.RoundsToRelay(aggregators...)
 	if err != nil {
 		return err
 	}
