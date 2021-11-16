@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -33,8 +34,8 @@ type (
 	}
 	exchangeRelayer struct {
 		abstractRelayer
-		exchanges        []exchange.Exchange
-		shadowAggregator contract.ShadowAggregator
+		exchanges  []exchange.Exchange
+		aggregator contract.NaiveAggregator
 	}
 	contractRelayer struct {
 		abstractRelayer
@@ -244,14 +245,14 @@ func NewExchangeRelayer(
 	privateKey string,
 	exchanges []exchange.Exchange,
 	recorder *Recorder,
-	shadowAggregatorAddr common.Address,
+	aggregatorAddr common.Address,
 	targetClient *ethclient.Client,
 ) (Relayer, error) {
 	pk, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return nil, err
 	}
-	shadowAggregator, err := contract.NewShadowAggregator(shadowAggregatorAddr, targetClient)
+	aggregator, err := contract.NewNaiveAggregator(aggregatorAddr, targetClient)
 	if err != nil {
 		return nil, err
 	}
@@ -263,28 +264,29 @@ func NewExchangeRelayer(
 			recorder:           recorder,
 			targetClient:       targetClient,
 		},
-		exchanges:        exchanges,
-		shadowAggregator: *shadowAggregator,
+		exchanges:  exchanges,
+		aggregator: *aggregator,
 	}, nil
 }
 
 func (relayer *exchangeRelayer) Produce(context.Context) error {
-	latestRoundData, err := relayer.shadowAggregator.LatestRoundData(&bind.CallOpts{})
+	latestRoundData, err := relayer.aggregator.LatestRoundData(&bind.CallOpts{})
 	if err != nil {
 		return err
 	}
 	now := time.Now()
 	latestRoundTime := time.Unix(latestRoundData.StartedAt.Int64(), 0)
-	latestRoundAnswer := latestRoundData.Answer.Uint64()
-	var total uint64
+	latestRoundAnswer := latestRoundData.Answer.Int64()
+	var prices sort.Float64Slice
 	for _, exchange := range relayer.exchanges {
-		price, err := exchange.GetPrice()
+		price, err := exchange.Price()
 		if err != nil {
 			return err
 		}
-		total += price
+		prices = append(prices, price)
 	}
-	diff := latestRoundAnswer - total/uint64(len(relayer.exchanges))
+	prices.Sort()
+	diff := latestRoundAnswer - int64(prices[len(prices)/2]*1000000)
 	if diff < 0 {
 		diff = -diff
 	}

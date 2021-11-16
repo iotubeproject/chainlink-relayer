@@ -1,5 +1,9 @@
 package exchange
 
+import "errors"
+
 type Exchange interface {
-	GetPrice() (uint64, error)
+	Price() (float64, error)
 }
+
+var ErrFailedToQuery = errors.New("failed to query")

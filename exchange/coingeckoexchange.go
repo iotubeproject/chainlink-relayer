@@ -4,21 +4,20 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/pkg/errors"
 )
 
-type binanceExchange struct {
+type coingeckoExchange struct {
 }
 
-func NewBinanceExchange() Exchange {
-	return &binanceExchange{}
+func NewCoingeckoExchange() Exchange {
+	return &coingeckoExchange{}
 }
 
-func (*binanceExchange) Price() (float64, error) {
+func (*coingeckoExchange) Price() (float64, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://api.binance.com/api/v3/ticker/price?symbol=IOTXUSDT", nil)
+	req, err := http.NewRequest("GET", "https://api.coingecko.com/api/v3/simple/price?ids=iotex&vs_currencies=USD", nil)
 	if err != nil {
 		return 0, errors.Wrap(ErrFailedToQuery, err.Error())
 	}
@@ -34,11 +33,10 @@ func (*binanceExchange) Price() (float64, error) {
 	if err != nil {
 		return 0, errors.Errorf("invalid response format %+v", err)
 	}
-
-	values := map[string]string{}
+	values := map[string]map[string]float64{}
 	if err := json.Unmarshal(respBody, &values); err != nil {
-		return 0, errors.Wrapf(err, "invalid response format %s", string(respBody))
+		return 0, errors.Errorf("invalid response format %+v", err)
 	}
 
-	return strconv.ParseFloat(values["price"], 64)
+	return values["iotex"]["usd"], nil
 }
