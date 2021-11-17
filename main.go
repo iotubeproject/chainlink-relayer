@@ -13,14 +13,15 @@ import (
 )
 
 type Configuration struct {
-	Interval        time.Duration     `yaml:"interval"`
-	StartHeight     uint64            `yaml:"startHeight"`
-	DatabaseURL     string            `yaml:"databaseURL"`
-	SourceClientURL string            `yaml:"sourceClientURL"`
-	TargetClientURL string            `yaml:"targetClientURL"`
-	TargetChainID   uint32            `yaml:"targetChainID"`
-	PrivateKey      string            `yaml:"privateKey"`
-	AggregatorPairs map[string]string `yaml:"aggregatorPairs"`
+	Interval            time.Duration                `yaml:"interval"`
+	StartHeight         uint64                       `yaml:"startHeight"`
+	DatabaseURL         string                       `yaml:"databaseURL"`
+	SourceClientURL     string                       `yaml:"sourceClientURL"`
+	TargetClientURL     string                       `yaml:"targetClientURL"`
+	TargetChainID       uint32                       `yaml:"targetChainID"`
+	PrivateKey          string                       `yaml:"privateKey"`
+	AggregatorPairs     map[string]string            `yaml:"aggregatorPairs"`
+	ExchangeAggregators map[string]map[string]string `yaml:"exchangeAggregators"`
 }
 
 var defaultConfig = Configuration{}
@@ -65,10 +66,11 @@ func main() {
 		cfg.Interval,
 		cfg.StartHeight,
 		cfg.DatabaseURL,
-		cfg.AggregatorPairs,
 		cfg.SourceClientURL,
 		cfg.TargetClientURL,
 		cfg.PrivateKey,
+		cfg.AggregatorPairs,
+		cfg.ExchangeAggregators,
 	)
 	if err != nil {
 		log.Fatalln(err)

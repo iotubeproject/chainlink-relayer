@@ -9,15 +9,16 @@ import (
 )
 
 type coingeckoExchange struct {
+	queryUrl string
 }
 
-func NewCoingeckoExchange() Exchange {
-	return &coingeckoExchange{}
+func NewCoingeckoExchange(symbol string) Exchange {
+	return &coingeckoExchange{queryUrl: "https://api.coingecko.com/api/v3/simple/price?ids=" + symbol + "&vs_currencies=USD"}
 }
 
-func (*coingeckoExchange) Price() (float64, error) {
+func (ce *coingeckoExchange) Price() (float64, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://api.coingecko.com/api/v3/simple/price?ids=iotex&vs_currencies=USD", nil)
+	req, err := http.NewRequest("GET", ce.queryUrl, nil)
 	if err != nil {
 		return 0, errors.Wrap(ErrFailedToQuery, err.Error())
 	}

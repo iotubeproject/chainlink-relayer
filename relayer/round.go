@@ -19,16 +19,16 @@ import (
 
 type Round struct {
 	gorm.Model
-	Aggregator  string `gorm:"uniqueIndex:idx_aggregator_round;index;size:42;not null;"`
-	Number      uint64 `gorm:"uniqueIndex:idx_aggregator_round;index;unsigned;not null;"`
-	Ts          time.Time
-	Report      string `gorm:"not null"`
-	Rs          string `gorm:"not null"`
-	Ss          string `gorm:"not null"`
-	Vs          string `gorm:"not null"`
-	TxHash      string `gorm:"varchar(66);not null;index;"`
-	RelayTxHash string `gorm:"varchar(66);index;"`
-	Status      string `gorm:"varchar(10);not null;index;default:''"`
+	RelayTask
+	// Source Aggregator
+	Aggregator string `gorm:"uniqueIndex:idx_aggregator_round;index;size:42;not null;"`
+	Number     uint64 `gorm:"uniqueIndex:idx_aggregator_round;index;unsigned;not null;"`
+	Ts         time.Time
+	Report     string `gorm:"not null"`
+	Rs         string `gorm:"not null"`
+	Ss         string `gorm:"not null"`
+	Vs         string `gorm:"not null"`
+	TxHash     string `gorm:"varchar(66);not null;index;"`
 }
 
 func NewRound(log types.Log, tx *types.Transaction) (*Round, error) {

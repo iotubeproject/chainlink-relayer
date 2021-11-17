@@ -22,7 +22,8 @@ const (
 
 type (
 	Meta struct {
-		SyncedHeight uint64 `gorm:"primary_key;unsigned"`
+		Key   string `gorm:"primary_key"`
+		Value string `gorm:"default:0;unsigned"`
 	}
 	// Recorder is a logger based on sql to record exchange events
 	Recorder struct {
@@ -36,66 +37,114 @@ func (Meta) TableName() string {
 
 // NewRecorder returns a recorder for exchange
 func NewRecorder(db *gorm.DB) (*Recorder, error) {
-	if err := db.AutoMigrate(&Round{}, &Meta{}); err != nil {
+	if err := db.AutoMigrate(&Round{}, &Record{}, &Meta{}); err != nil {
 		return nil, err
 	}
 	return &Recorder{db: db}, nil
 }
 
-func (recorder *Recorder) SyncedHeight() (uint64, error) {
-	var height uint64
-	switch result := recorder.db.Table("metas").Select("coalesce(max(synced_height), 0)").Find(&height); errors.Cause(result.Error) {
+func (recorder *Recorder) Value(key string) (string, error) {
+	var value string
+	switch result := recorder.db.Table("metas").Select("coalesce(value, '')").Where("key = ?", key).Find(&value); errors.Cause(result.Error) {
 	case nil:
-		return height, nil
+		return value, nil
 	case gorm.ErrRecordNotFound:
-		return 0, nil
+		return "", nil
 	default:
-		return 0, result.Error
+		return "", result.Error
 	}
 }
 
-// AddTransfer creates a new transfer record
-func (recorder *Recorder) Put(syncedHeight uint64, data []*Round) error {
+func (recorder *Recorder) PutRounds(key, value string, rounds []*Round) error {
 	return recorder.db.Transaction(func(tx *gorm.DB) error {
-		if len(data) != 0 {
-			if result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(data); result.Error != nil {
+		if len(rounds) != 0 {
+			if result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(rounds); result.Error != nil {
 				return result.Error
 			}
 		}
 
 		return tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "synced_height"}},
-			DoUpdates: clause.AssignmentColumns([]string{"synced_height"}),
-		}).Create(&Meta{SyncedHeight: syncedHeight}).Error
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value"}),
+		}).Create(&Meta{Key: key, Value: value}).Error
 	})
 }
 
-// SetRelayTxHash updates a round with new tx hash
-func (recorder *Recorder) SetRelayTxHash(id uint, txHash common.Hash) error {
+func (recorder *Recorder) PutRecords(key, value string, records []*Record) error {
 	return recorder.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Table("rounds").Where("id = ?", id).Updates(map[string]interface{}{"status": Relayed, "relay_tx_hash": txHash.String()}).Error
+		if len(records) != 0 {
+			if result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(records); result.Error != nil {
+				return result.Error
+			}
+		}
+
+		return tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value"}),
+		}).Create(&Meta{Key: key, Value: value}).Error
 	})
 }
 
-// Confirm marks a round as confirmed
-func (recorder *Recorder) Confirm(id uint) error {
-	return recorder.updateStatus(id, Confirmed)
+func (recorder *Recorder) setRelayTxHash(tableName string, id uint, txHash common.Hash, relayer common.Address, nonce uint64) error {
+	return recorder.db.Transaction(func(tx *gorm.DB) error {
+		return tx.Table(tableName).Where("id = ?", id).Updates(map[string]interface{}{
+			"status":        Relayed,
+			"relay_tx_hash": txHash.String(),
+			"relayer":       relayer.String(),
+			"nonce":         nonce,
+		}).Error
+	})
 }
 
-// Fail marks a round as failed
-func (recorder *Recorder) Fail(id uint) error {
-	return recorder.updateStatus(id, Failed)
+func (recorder *Recorder) SetRoundRelayTxHash(id uint, txHash common.Hash, relayer common.Address, nonce uint64) error {
+	return recorder.setRelayTxHash("rounds", id, txHash, relayer, nonce)
 }
 
-func (recorder *Recorder) RoundsToConfirm(aggregators ...string) ([]*Round, error) {
-	return recorder.roundsByStatus(Relayed, aggregators...)
+func (recorder *Recorder) SetRecordRelayTxHash(id uint, txHash common.Hash, relayer common.Address, nonce uint64) error {
+	return recorder.setRelayTxHash("records", id, txHash, relayer, nonce)
 }
 
-func (recorder *Recorder) RoundsToRelay(aggregators ...string) ([]*Round, error) {
-	return recorder.roundsByStatus(New, aggregators...)
+func (recorder *Recorder) ConfirmRound(id uint) error {
+	return recorder.updateStatus("rounds", id, Confirmed)
 }
 
-func (recorder *Recorder) roundsByStatus(status string, aggregators ...string) ([]*Round, error) {
+func (recorder *Recorder) ConfirmRecord(id uint) error {
+	return recorder.updateStatus("records", id, Confirmed)
+}
+
+func (recorder *Recorder) FailRound(id uint) error {
+	return recorder.updateStatus("rounds", id, Failed)
+}
+
+func (recorder *Recorder) FailRecord(id uint) error {
+	return recorder.updateStatus("records", id, Failed)
+}
+
+func (recorder *Recorder) ResetRound(id uint) error {
+	return recorder.updateStatus("rounds", id, New)
+}
+
+func (recorder *Recorder) ResetRecord(id uint) error {
+	return recorder.updateStatus("records", id, New)
+}
+
+func (recorder *Recorder) RoundToConfirm(aggregator string) (*Round, error) {
+	return recorder.roundByStatus(Relayed, aggregator)
+}
+
+func (recorder *Recorder) RoundsToRelay(aggregator string) (*Round, error) {
+	return recorder.roundByStatus(New, aggregator)
+}
+
+func (recorder *Recorder) RecordToConfirm(aggregator string) (*Record, error) {
+	return recorder.recordByStatus(Relayed, aggregator)
+}
+
+func (recorder *Recorder) RecordToRelay(aggregator string) (*Record, error) {
+	return recorder.recordByStatus(New, aggregator)
+}
+
+func (recorder *Recorder) roundByStatus(status string, aggregators ...string) (*Round, error) {
 	rounds := []*Round{}
 	tx := recorder.db.Table("rounds")
 	if len(aggregators) == 0 {
@@ -103,15 +152,42 @@ func (recorder *Recorder) roundsByStatus(status string, aggregators ...string) (
 	} else {
 		tx = tx.Where("status = ? AND aggregator in ?", status, aggregators)
 	}
-	if result := tx.Order("rounds.number asc").Find(&rounds); result.Error != nil {
+	switch result := tx.Limit(1).Order("created_at ASC, number ASC").Find(&rounds); errors.Cause(result.Error) {
+	case nil:
+		if len(rounds) > 0 {
+			return rounds[0], nil
+		}
+		return nil, nil
+	case gorm.ErrRecordNotFound:
+		return nil, nil
+	default:
 		return nil, result.Error
 	}
-
-	return rounds, nil
 }
 
-func (recorder *Recorder) updateStatus(id uint, status string) error {
+func (recorder *Recorder) recordByStatus(status string, aggregators ...string) (*Record, error) {
+	records := []*Record{}
+	tx := recorder.db.Table("records")
+	if len(aggregators) == 0 {
+		tx = tx.Where("status = ?", status)
+	} else {
+		tx = tx.Where("status = ? AND aggregator in ?", status, aggregators)
+	}
+	switch result := tx.Limit(1).Order("created_at ASC, number ASC").Find(&records); errors.Cause(result.Error) {
+	case nil:
+		if len(records) > 0 {
+			return records[0], nil
+		}
+		return nil, nil
+	case gorm.ErrRecordNotFound:
+		return nil, nil
+	default:
+		return nil, result.Error
+	}
+}
+
+func (recorder *Recorder) updateStatus(tableName string, id uint, status string) error {
 	return recorder.db.Transaction(func(tx *gorm.DB) error {
-		return tx.Table("rounds").Where("id = ?", id).Update("status", status).Error
+		return tx.Table(tableName).Where("id = ?", id).Update("status", status).Error
 	})
 }

@@ -27,7 +27,7 @@ var (
 )
 
 // NaiveAggregatorABI is the input ABI used to generate the binding from.
-const NaiveAggregatorABI = "[{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"_decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"_description\",\"type\":\"string\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"aggregator\",\"outputs\":[{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint80\",\"name\":\"_roundId\",\"type\":\"uint80\"}],\"name\":\"getRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundId\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"_aggregator\",\"type\":\"address\"}],\"name\":\"setAggregator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"_answer\",\"type\":\"int256\"}],\"name\":\"submit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
+const NaiveAggregatorABI = "[{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"_decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"_description\",\"type\":\"string\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"aggregator\",\"outputs\":[{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint80\",\"name\":\"_roundId\",\"type\":\"uint80\"}],\"name\":\"getRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"answer\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundId\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundTimestamp\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractAggregatorV3Interface\",\"name\":\"_aggregator\",\"type\":\"address\"}],\"name\":\"setAggregator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"_answer\",\"type\":\"int256\"},{\"internalType\":\"uint64\",\"name\":\"_timestamp\",\"type\":\"uint64\"}],\"name\":\"submit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]"
 
 // NaiveAggregator is an auto generated Go binding around an Ethereum contract.
 type NaiveAggregator struct {
@@ -446,6 +446,37 @@ func (_NaiveAggregator *NaiveAggregatorCallerSession) LatestRoundId() (*big.Int,
 	return _NaiveAggregator.Contract.LatestRoundId(&_NaiveAggregator.CallOpts)
 }
 
+// LatestRoundTimestamp is a free data retrieval call binding the contract method 0x7afaf033.
+//
+// Solidity: function latestRoundTimestamp() view returns(uint64)
+func (_NaiveAggregator *NaiveAggregatorCaller) LatestRoundTimestamp(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _NaiveAggregator.contract.Call(opts, &out, "latestRoundTimestamp")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// LatestRoundTimestamp is a free data retrieval call binding the contract method 0x7afaf033.
+//
+// Solidity: function latestRoundTimestamp() view returns(uint64)
+func (_NaiveAggregator *NaiveAggregatorSession) LatestRoundTimestamp() (uint64, error) {
+	return _NaiveAggregator.Contract.LatestRoundTimestamp(&_NaiveAggregator.CallOpts)
+}
+
+// LatestRoundTimestamp is a free data retrieval call binding the contract method 0x7afaf033.
+//
+// Solidity: function latestRoundTimestamp() view returns(uint64)
+func (_NaiveAggregator *NaiveAggregatorCallerSession) LatestRoundTimestamp() (uint64, error) {
+	return _NaiveAggregator.Contract.LatestRoundTimestamp(&_NaiveAggregator.CallOpts)
+}
+
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -529,25 +560,25 @@ func (_NaiveAggregator *NaiveAggregatorTransactorSession) SetAggregator(_aggrega
 	return _NaiveAggregator.Contract.SetAggregator(&_NaiveAggregator.TransactOpts, _aggregator)
 }
 
-// Submit is a paid mutator transaction binding the contract method 0x9b25df0b.
+// Submit is a paid mutator transaction binding the contract method 0xa93f21c4.
 //
-// Solidity: function submit(int256 _answer) returns()
-func (_NaiveAggregator *NaiveAggregatorTransactor) Submit(opts *bind.TransactOpts, _answer *big.Int) (*types.Transaction, error) {
-	return _NaiveAggregator.contract.Transact(opts, "submit", _answer)
+// Solidity: function submit(int256 _answer, uint64 _timestamp) returns()
+func (_NaiveAggregator *NaiveAggregatorTransactor) Submit(opts *bind.TransactOpts, _answer *big.Int, _timestamp uint64) (*types.Transaction, error) {
+	return _NaiveAggregator.contract.Transact(opts, "submit", _answer, _timestamp)
 }
 
-// Submit is a paid mutator transaction binding the contract method 0x9b25df0b.
+// Submit is a paid mutator transaction binding the contract method 0xa93f21c4.
 //
-// Solidity: function submit(int256 _answer) returns()
-func (_NaiveAggregator *NaiveAggregatorSession) Submit(_answer *big.Int) (*types.Transaction, error) {
-	return _NaiveAggregator.Contract.Submit(&_NaiveAggregator.TransactOpts, _answer)
+// Solidity: function submit(int256 _answer, uint64 _timestamp) returns()
+func (_NaiveAggregator *NaiveAggregatorSession) Submit(_answer *big.Int, _timestamp uint64) (*types.Transaction, error) {
+	return _NaiveAggregator.Contract.Submit(&_NaiveAggregator.TransactOpts, _answer, _timestamp)
 }
 
-// Submit is a paid mutator transaction binding the contract method 0x9b25df0b.
+// Submit is a paid mutator transaction binding the contract method 0xa93f21c4.
 //
-// Solidity: function submit(int256 _answer) returns()
-func (_NaiveAggregator *NaiveAggregatorTransactorSession) Submit(_answer *big.Int) (*types.Transaction, error) {
-	return _NaiveAggregator.Contract.Submit(&_NaiveAggregator.TransactOpts, _answer)
+// Solidity: function submit(int256 _answer, uint64 _timestamp) returns()
+func (_NaiveAggregator *NaiveAggregatorTransactorSession) Submit(_answer *big.Int, _timestamp uint64) (*types.Transaction, error) {
+	return _NaiveAggregator.Contract.Submit(&_NaiveAggregator.TransactOpts, _answer, _timestamp)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.

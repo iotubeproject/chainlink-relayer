@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iotexproject/chainlink-relayer/contract"
+	"github.com/iotexproject/chainlink-relayer/exchange"
 	"github.com/iotexproject/chainlink-relayer/runner"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
@@ -34,10 +36,11 @@ func NewService(
 	interval time.Duration,
 	startHeight uint64,
 	databaseURL string,
-	aggregatorPairs map[string]string,
 	sourceClientURL string,
 	targetClientURL string,
 	privateKey string,
+	aggregatorPairs map[string]string,
+	exchangeAggregators map[string]map[string]string,
 ) (*runner.ProducerConsumerRunner, error) {
 	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
 		SkipDefaultTransaction: true,
@@ -61,11 +64,28 @@ func NewService(
 	for origin, shadow := range aggregatorPairs {
 		pairs[common.HexToAddress(origin)] = common.HexToAddress(shadow)
 	}
+	relayers := []Relayer{}
+	fmt.Println("exchange aggregators", exchangeAggregators)
+	for aggregatorAddr, exchanges := range exchangeAggregators {
+		exs := []exchange.Exchange{}
+		for key, symbol := range exchanges {
+			ex, err := exchange.NewExchange(key, symbol)
+			if err != nil {
+				return nil, err
+			}
+			exs = append(exs, ex)
+		}
+		relayer, err := NewExchangeRelayer(privateKey, exs, recorder, common.HexToAddress(aggregatorAddr), targetClient)
+		if err != nil {
+			return nil, err
+		}
+		relayers = append(relayers, relayer)
+	}
 	relayer, err := NewContractRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetClient)
 	if err != nil {
 		return nil, err
 	}
-	return runner.NewProducerConsumerRunner(interval, relayer, func(err error) {
+	return runner.NewProducerConsumerRunner(interval, NewRelayerMaster(append(relayers, relayer)), func(err error) {
 		log.Printf("Something goes wrong %+v\n", err)
 	})
 }

@@ -10,15 +10,16 @@ import (
 )
 
 type binanceExchange struct {
+	queryUrl string
 }
 
-func NewBinanceExchange() Exchange {
-	return &binanceExchange{}
+func NewBinanceExchange(symbol string) Exchange {
+	return &binanceExchange{queryUrl: "https://api.binance.com/api/v3/ticker/price?symbol=" + symbol + "USDT"}
 }
 
-func (*binanceExchange) Price() (float64, error) {
+func (be *binanceExchange) Price() (float64, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://api.binance.com/api/v3/ticker/price?symbol=IOTXUSDT", nil)
+	req, err := http.NewRequest("GET", be.queryUrl, nil)
 	if err != nil {
 		return 0, errors.Wrap(ErrFailedToQuery, err.Error())
 	}

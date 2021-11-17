@@ -10,15 +10,16 @@ import (
 )
 
 type kucoinExchange struct {
+	queryUrl string
 }
 
-func NewKucoinExchange() Exchange {
-	return &kucoinExchange{}
+func NewKucoinExchange(symbol string) Exchange {
+	return &kucoinExchange{queryUrl: "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=" + symbol + "-USDT"}
 }
 
-func (*kucoinExchange) Price() (float64, error) {
+func (ke *kucoinExchange) Price() (float64, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=IOTX-USDT", nil)
+	req, err := http.NewRequest("GET", ke.queryUrl, nil)
 	if err != nil {
 		return 0, errors.Wrap(ErrFailedToQuery, err.Error())
 	}
@@ -38,10 +39,13 @@ func (*kucoinExchange) Price() (float64, error) {
 	if err := json.Unmarshal(respBody, &rawMessages); err != nil {
 		return 0, errors.Wrapf(err, "invalid response format %s", respBody)
 	}
-	data := map[string]string{}
-	if err := json.Unmarshal(rawMessages["data"], &rawMessages); err != nil {
+	data := map[string]json.RawMessage{}
+	if err := json.Unmarshal(rawMessages["data"], &data); err != nil {
 		return 0, errors.Wrapf(err, "invalid response format %s", rawMessages["tick"])
 	}
-
-	return strconv.ParseFloat(data["price"], 64)
+	var price string
+	if err := json.Unmarshal(data["price"], &price); err != nil {
+		return 0, errors.Wrapf(err, "invalid response format %s", data["price"])
+	}
+	return strconv.ParseFloat(price, 64)
 }

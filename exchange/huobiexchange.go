@@ -9,15 +9,16 @@ import (
 )
 
 type huobiExchange struct {
+	queryUrl string
 }
 
-func NewHuobiExchange() Exchange {
-	return &huobiExchange{}
+func NewHuobiExchange(symbol string) Exchange {
+	return &huobiExchange{queryUrl: "https://api.huobi.pro/market/trade?symbol=" + symbol + "usdt"}
 }
 
-func (*huobiExchange) Price() (float64, error) {
+func (he *huobiExchange) Price() (float64, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://api.huobi.pro/market/trade?symbol=iotxusdt", nil)
+	req, err := http.NewRequest("GET", he.queryUrl, nil)
 	if err != nil {
 		return 0, errors.Wrap(ErrFailedToQuery, err.Error())
 	}

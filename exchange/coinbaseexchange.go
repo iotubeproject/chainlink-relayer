@@ -10,15 +10,16 @@ import (
 )
 
 type coinbaseExchange struct {
+	queryUrl string
 }
 
-func NewCoinbaseExchange() Exchange {
-	return &coinbaseExchange{}
+func NewCoinbaseExchange(symbol string) Exchange {
+	return &coinbaseExchange{queryUrl: "https://api.coinbase.com/v2/prices/" + symbol + "-USD/spot"}
 }
 
-func (*coinbaseExchange) Price() (float64, error) {
+func (ce *coinbaseExchange) Price() (float64, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://api.coinbase.com/v2/prices/IOTX-USD/spot", nil)
+	req, err := http.NewRequest("GET", ce.queryUrl, nil)
 	if err != nil {
 		return 0, errors.Wrap(ErrFailedToQuery, err.Error())
 	}

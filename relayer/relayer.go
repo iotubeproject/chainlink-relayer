@@ -5,18 +5,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
-	"sort"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/chainlink-relayer/contract"
-	"github.com/iotexproject/chainlink-relayer/exchange"
 )
 
 type (
@@ -32,180 +26,10 @@ type (
 		gasPriceUpperBound *big.Int
 		gasLimit           uint64
 	}
-	exchangeRelayer struct {
-		abstractRelayer
-		exchanges  []exchange.Exchange
-		aggregator contract.NaiveAggregator
-	}
-	contractRelayer struct {
-		abstractRelayer
-		lastProcessBlockHeight uint64
-		sourceClient           *ethclient.Client
-		recorder               *Recorder
-		shadowAggregators      map[common.Address]*contract.ShadowAggregator
-		query                  ethereum.FilterQuery
+	relayerMaster struct {
+		relayers []Relayer
 	}
 )
-
-func NewContractRelayer(
-	privateKey string,
-	startHeight uint64,
-	recorder *Recorder,
-	pairs map[common.Address]common.Address,
-	sourceClient *ethclient.Client,
-	targetClient *ethclient.Client,
-) (Relayer, error) {
-	shadowAggregators := map[common.Address]*contract.ShadowAggregator{}
-	aggregatorAddrs := []common.Address{}
-	for aggregatorAddr, shadowAggregatorAddr := range pairs {
-		shadowAggregator, err := contract.NewShadowAggregator(shadowAggregatorAddr, targetClient)
-		if err != nil {
-			return nil, err
-		}
-		shadowAggregators[aggregatorAddr] = shadowAggregator
-		aggregatorAddrs = append(aggregatorAddrs, aggregatorAddr)
-	}
-	pk, err := crypto.HexToECDSA(privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &contractRelayer{
-		abstractRelayer: abstractRelayer{targetChainID: big.NewInt(4690),
-			gasLimit:           1000000,
-			gasPriceUpperBound: big.NewInt(1000000000000000000),
-			privateKey:         pk,
-			recorder:           recorder,
-			targetClient:       targetClient,
-		},
-		shadowAggregators:      shadowAggregators,
-		lastProcessBlockHeight: startHeight,
-		recorder:               recorder,
-		sourceClient:           sourceClient,
-		query: ethereum.FilterQuery{
-			Addresses: aggregatorAddrs,
-			Topics:    [][]common.Hash{{aggregatorABI.Events[EventNewRound].ID}},
-		},
-	}, nil
-}
-
-func (relayer *contractRelayer) Produce(ctx context.Context) error {
-	query := relayer.query
-	startHeight := relayer.lastProcessBlockHeight
-	syncedHeight, err := relayer.recorder.SyncedHeight()
-	if err != nil {
-		return err
-	}
-	if syncedHeight > startHeight {
-		startHeight = syncedHeight
-	}
-	startHeight += 1
-	tipHeight, err := relayer.sourceClient.BlockNumber(ctx)
-	if err != nil {
-		return err
-	}
-	if tipHeight < 20 {
-		return nil
-	}
-	tipHeight -= 20
-	if tipHeight < startHeight {
-		return nil
-	}
-	endHeight := startHeight + 99
-	if tipHeight < endHeight {
-		endHeight = tipHeight
-	}
-	query.FromBlock = new(big.Int).SetUint64(startHeight)
-	query.ToBlock = new(big.Int).SetUint64(endHeight)
-	logs, err := relayer.sourceClient.FilterLogs(ctx, query)
-	if err != nil {
-		return err
-	}
-	rounds := make([]*Round, len(logs))
-	for i, log := range logs {
-		tx, _, err := relayer.sourceClient.TransactionByHash(ctx, log.TxHash)
-		if err != nil {
-			return err
-		}
-		round, err := NewRound(log, tx)
-		if err != nil {
-			return err
-		}
-		rounds[i] = round
-	}
-	fmt.Printf("%d fetched from %d to %d\n", len(rounds), query.FromBlock, query.ToBlock)
-	return relayer.recorder.Put(query.ToBlock.Uint64(), rounds)
-}
-
-func (relayer *contractRelayer) Consume(ctx context.Context) error {
-	aggregators := []string{}
-	for aggregator := range relayer.shadowAggregators {
-		aggregators = append(aggregators, aggregator.String())
-	}
-	roundsToConfirm, err := relayer.recorder.RoundsToConfirm(aggregators...)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%d to confirm\n", len(roundsToConfirm))
-	notConfirmed := map[string]bool{}
-	for _, round := range roundsToConfirm {
-		notConfirmed[round.Aggregator] = true
-		_, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(round.RelayTxHash))
-		switch errors.Cause(err) {
-		case nil:
-			if err := relayer.recorder.Confirm(round.ID); err != nil {
-				fmt.Printf("failed to confirm %+v, %+v\n", round, err)
-			}
-			notConfirmed[round.Aggregator] = false
-		case ethereum.NotFound:
-			continue
-		default:
-			fmt.Printf("failed fetch receipt for %s, %+v\n", round.RelayTxHash, err)
-		}
-	}
-	roundsToRelay, err := relayer.recorder.RoundsToRelay(aggregators...)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%d to relay\n", len(roundsToRelay))
-	for _, round := range roundsToRelay {
-		if notConfirmed[round.Aggregator] {
-			fmt.Printf("skip relay <%s, %d>, waiting to confirm previous round\n", round.Aggregator, round.Number)
-			continue
-		}
-		notConfirmed[round.Aggregator] = true
-		if err := relayer.relay(ctx, relayer.shadowAggregators[common.HexToAddress(round.Aggregator)], round); err != nil {
-			// TODO: better error handling
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (relayer *abstractRelayer) relay(ctx context.Context, shadowAggregator *contract.ShadowAggregator, round *Round) error {
-	opts, err := relayer.transactionOpts(ctx)
-	if err != nil {
-		return err
-	}
-	report, rs, ss, vs, err := round.FormatData()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Submitting <%s, %d>...\n", round.Aggregator, round.Number)
-	tx, err := shadowAggregator.Submit(
-		opts,
-		report,
-		rs,
-		ss,
-		vs,
-	)
-	if err != nil {
-		fmt.Printf("failed to relay <%s, %d>, %+v\n", round.Aggregator, round.Number, err)
-		return err
-	}
-	return relayer.recorder.SetRelayTxHash(round.ID, tx.Hash())
-}
 
 func (relayer *abstractRelayer) transactionOpts(ctx context.Context) (*bind.TransactOpts, error) {
 	relayerAddr := crypto.PubkeyToAddress(relayer.privateKey.PublicKey)
@@ -241,72 +65,27 @@ func (relayer *abstractRelayer) transactionOpts(ctx context.Context) (*bind.Tran
 	return opts, nil
 }
 
-func NewExchangeRelayer(
-	privateKey string,
-	exchanges []exchange.Exchange,
-	recorder *Recorder,
-	aggregatorAddr common.Address,
-	targetClient *ethclient.Client,
-) (Relayer, error) {
-	pk, err := crypto.HexToECDSA(privateKey)
-	if err != nil {
-		return nil, err
+func NewRelayerMaster(relayers []Relayer) *relayerMaster {
+	return &relayerMaster{
+		relayers: relayers,
 	}
-	aggregator, err := contract.NewNaiveAggregator(aggregatorAddr, targetClient)
-	if err != nil {
-		return nil, err
-	}
-	return &exchangeRelayer{
-		abstractRelayer: abstractRelayer{targetChainID: big.NewInt(4690),
-			gasLimit:           1000000,
-			gasPriceUpperBound: big.NewInt(1000000000000000000),
-			privateKey:         pk,
-			recorder:           recorder,
-			targetClient:       targetClient,
-		},
-		exchanges:  exchanges,
-		aggregator: *aggregator,
-	}, nil
 }
 
-func (relayer *exchangeRelayer) Produce(context.Context) error {
-	latestRoundData, err := relayer.aggregator.LatestRoundData(&bind.CallOpts{})
-	if err != nil {
-		return err
-	}
-	now := time.Now()
-	latestRoundTime := time.Unix(latestRoundData.StartedAt.Int64(), 0)
-	latestRoundAnswer := latestRoundData.Answer.Int64()
-	var prices sort.Float64Slice
-	for _, exchange := range relayer.exchanges {
-		price, err := exchange.Price()
-		if err != nil {
-			return err
+func (master *relayerMaster) Consume(ctx context.Context) error {
+	for _, relayer := range master.relayers {
+		if err := relayer.Consume(ctx); err != nil {
+			fmt.Printf("failed to consume, %+v\n", err)
 		}
-		prices = append(prices, price)
+		time.Sleep(5 * time.Second)
 	}
-	prices.Sort()
-	diff := latestRoundAnswer - int64(prices[len(prices)/2]*1000000)
-	if diff < 0 {
-		diff = -diff
-	}
-	if diff*200 < latestRoundAnswer && now.Before(latestRoundTime.Add(time.Hour)) {
-		return nil
-	}
-	// insert into recorder
-	return relayer.recorder.Put(0, []*Round{
-		{
-			Aggregator: common.Address{}.String(),
-			Number:     latestRoundData.RoundId.Uint64() + 1,
-			Ts:         now,
-			Report:     "",
-			Rs:         "",
-			Vs:         "",
-			TxHash:     common.Hash{}.String(),
-		},
-	})
+	return nil
 }
 
-func (relayer *exchangeRelayer) Consume(context.Context) error {
+func (master *relayerMaster) Produce(ctx context.Context) error {
+	for _, relayer := range master.relayers {
+		if err := relayer.Produce(ctx); err != nil {
+			fmt.Printf("failed to produce, %+v\n", err)
+		}
+	}
 	return nil
 }
