@@ -195,6 +195,7 @@ func (relayer *contractRelayer) Consume(ctx context.Context) error {
 		if err := relayer.consume(ctx, p.sourceAggregatorAddr, p.shadowAggregatorAddr, p.shadowAggregator); err != nil {
 			return err
 		}
+		time.Sleep(10 * time.Second)
 	}
 
 	return nil

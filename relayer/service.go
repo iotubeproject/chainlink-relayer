@@ -1,7 +1,6 @@
 package relayer
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -65,7 +64,6 @@ func NewService(
 		pairs[common.HexToAddress(origin)] = common.HexToAddress(shadow)
 	}
 	relayers := []Relayer{}
-	fmt.Println("exchange aggregators", exchangeAggregators)
 	for aggregatorAddr, exchanges := range exchangeAggregators {
 		exs := []exchange.Exchange{}
 		for key, symbol := range exchanges {
