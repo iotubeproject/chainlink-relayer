@@ -127,12 +127,15 @@ func (relayer *exchangeRelayer) Consume(ctx context.Context) error {
 		return err
 	}
 	if recordToConfirm != nil {
-		_, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(recordToConfirm.RelayTxHash))
-		switch errors.Cause(err) {
+		nonce, err := relayer.nonceAt(ctx)
+		if err != nil {
+			return err
+		}
+		switch _, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(recordToConfirm.RelayTxHash)); errors.Cause(err) {
 		case nil:
 			return relayer.recorder.ConfirmRecord(recordToConfirm.ID)
 		case ethereum.NotFound:
-			if recordToConfirm.CreatedAt.Add(10 * time.Minute).Before(time.Now()) {
+			if recordToConfirm.Nonce <= nonce && recordToConfirm.CreatedAt.Add(10*time.Minute).Before(time.Now()) {
 				return relayer.recorder.ResetRecord(recordToConfirm.ID)
 			}
 			return nil

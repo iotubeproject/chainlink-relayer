@@ -31,6 +31,10 @@ type (
 	}
 )
 
+func (relayer *abstractRelayer) nonceAt(ctx context.Context) (uint64, error) {
+	return relayer.targetClient.NonceAt(ctx, crypto.PubkeyToAddress(relayer.privateKey.PublicKey), nil)
+}
+
 func (relayer *abstractRelayer) transactionOpts(ctx context.Context) (*bind.TransactOpts, error) {
 	relayerAddr := crypto.PubkeyToAddress(relayer.privateKey.PublicKey)
 
