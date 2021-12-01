@@ -43,6 +43,7 @@ func NewExchangeRelayer(
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("operator address %s\n", crypto.PubkeyToAddress(pk.PublicKey).String())
 	return &exchangeRelayer{
 		abstractRelayer: abstractRelayer{targetChainID: big.NewInt(4690),
 			gasLimit:           1000000,
