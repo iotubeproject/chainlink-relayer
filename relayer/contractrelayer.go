@@ -171,7 +171,9 @@ func (relayer *contractRelayer) consume(
 		}
 		switch _, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(roundToConfirm.RelayTxHash)); errors.Cause(err) {
 		case nil:
-			return relayer.recorder.ConfirmRound(roundToConfirm.ID)
+			if err := relayer.recorder.ConfirmRound(roundToConfirm.ID); err != nil {
+				return err
+			}
 		case ethereum.NotFound:
 			if roundToConfirm.Nonce <= nonce && roundToConfirm.CreatedAt.Add(10*time.Minute).Before(time.Now()) {
 				return relayer.recorder.ResetRound(roundToConfirm.ID)
