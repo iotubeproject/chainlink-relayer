@@ -26,7 +26,7 @@ type Configuration struct {
 
 var defaultConfig = Configuration{}
 
-var configFile = flag.String("config", "config.yaml", "path of config file")
+var configFile = flag.String("config", "", "path of config file")
 
 func init() {
 	flag.Usage = func() {
@@ -40,6 +40,9 @@ func main() {
 	opts := []config.YAMLOption{config.Static(defaultConfig), config.Expand(os.LookupEnv)}
 	if *configFile != "" {
 		opts = append(opts, config.File(*configFile))
+	}
+	if cf, exists := os.LookupEnv("OVERWRITE_CONFIG_FILE"); exists {
+		opts = append(opts, config.File(cf))
 	}
 	yaml, err := config.NewYAML(opts...)
 	if err != nil {

@@ -94,7 +94,7 @@ func (relayer *exchangeRelayer) Produce(context.Context) error {
 		prices = append(prices, price)
 	}
 	prices.Sort()
-	answer := int64(prices[len(prices)/2] * 1000000)
+	answer := int64(prices[len(prices)/2] * 100000000)
 	diff := latestRoundAnswer - answer
 	if diff < 0 {
 		diff = -diff
