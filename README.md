@@ -29,7 +29,7 @@ The table below lists the shadow aggregators deployed on IoTeX testnet:
 |DAI/USD|8|[0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9](https://etherscan.io/address/0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9)|[0x95eBC95FF2b81866D7Bc1c3c1257533795CF96B7](https://iotexscan.io/address/0x95eBC95FF2b81866D7Bc1c3c1257533795CF96B7)|
 
 |Pair |Dec|Aggregator|
-|----|----|----|----|
+|----|----|----|
 |IOTX/USD|8|[0x267Ef702F3422cC55C617218a4fB84446F5Ec646](https://iotexscan.io/address/0x267Ef702F3422cC55C617218a4fB84446F5Ec646)|
 
 ## Run a Relayer
