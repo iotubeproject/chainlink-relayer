@@ -70,6 +70,7 @@ func main() {
 		cfg.StartHeight,
 		cfg.DatabaseURL,
 		cfg.SourceClientURL,
+		cfg.TargetChainID,
 		cfg.TargetClientURL,
 		cfg.PrivateKey,
 		cfg.AggregatorPairs,

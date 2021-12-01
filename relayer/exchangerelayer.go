@@ -33,6 +33,7 @@ func NewExchangeRelayer(
 	exchanges []exchange.Exchange,
 	recorder *Recorder,
 	aggregatorAddr common.Address,
+	targetChainID uint32,
 	targetClient *ethclient.Client,
 ) (Relayer, error) {
 	pk, err := crypto.HexToECDSA(privateKey)
@@ -45,7 +46,8 @@ func NewExchangeRelayer(
 	}
 	fmt.Printf("operator address %s\n", crypto.PubkeyToAddress(pk.PublicKey).String())
 	return &exchangeRelayer{
-		abstractRelayer: abstractRelayer{targetChainID: big.NewInt(4690),
+		abstractRelayer: abstractRelayer{
+			targetChainID:      big.NewInt(int64(targetChainID)),
 			gasLimit:           1000000,
 			gasPriceUpperBound: big.NewInt(1000000000000000000),
 			privateKey:         pk,

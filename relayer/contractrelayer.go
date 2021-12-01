@@ -37,6 +37,7 @@ func NewContractRelayer(
 	recorder *Recorder,
 	aggregators map[common.Address]common.Address,
 	sourceClient *ethclient.Client,
+	targetChainID uint32,
 	targetClient *ethclient.Client,
 ) (Relayer, error) {
 	pairs := []pair{}
@@ -57,7 +58,8 @@ func NewContractRelayer(
 	}
 
 	return &contractRelayer{
-		abstractRelayer: abstractRelayer{targetChainID: big.NewInt(4690),
+		abstractRelayer: abstractRelayer{
+			targetChainID:      big.NewInt(int64(targetChainID)),
 			gasLimit:           1000000,
 			gasPriceUpperBound: big.NewInt(1000000000000000000),
 			privateKey:         pk,

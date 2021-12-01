@@ -36,6 +36,7 @@ func NewService(
 	startHeight uint64,
 	databaseURL string,
 	sourceClientURL string,
+	targetChainID uint32,
 	targetClientURL string,
 	privateKey string,
 	aggregatorPairs map[string]string,
@@ -73,13 +74,13 @@ func NewService(
 			}
 			exs = append(exs, ex)
 		}
-		relayer, err := NewExchangeRelayer(privateKey, exs, recorder, common.HexToAddress(aggregatorAddr), targetClient)
+		relayer, err := NewExchangeRelayer(privateKey, exs, recorder, common.HexToAddress(aggregatorAddr), targetChainID, targetClient)
 		if err != nil {
 			return nil, err
 		}
 		relayers = append(relayers, relayer)
 	}
-	relayer, err := NewContractRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetClient)
+	relayer, err := NewContractRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetChainID, targetClient)
 	if err != nil {
 		return nil, err
 	}
