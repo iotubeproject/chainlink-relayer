@@ -159,47 +159,52 @@ func (relayer *contractRelayer) consume(
 	ctx context.Context,
 	sourceAggregatorAddr, shadowAggregatorAddr common.Address,
 	shadowAggregator *contract.ShadowAggregator,
-) error {
+) (bool, error) {
 	roundToConfirm, err := relayer.recorder.RoundToConfirm(sourceAggregatorAddr.String())
 	if err != nil {
-		return err
+		return false, err
 	}
 	if roundToConfirm != nil {
 		nonce, err := relayer.nonceAt(ctx)
 		if err != nil {
-			return err
+			return false, err
 		}
+		// TODO: read contract, if already confirmed, skip
 		switch _, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(roundToConfirm.RelayTxHash)); errors.Cause(err) {
 		case nil:
+			// TODO: handle receipt.Status != success
 			if err := relayer.recorder.ConfirmRound(roundToConfirm.ID); err != nil {
-				return err
+				return false, err
 			}
 		case ethereum.NotFound:
 			if roundToConfirm.Nonce <= nonce && roundToConfirm.CreatedAt.Add(10*time.Minute).Before(time.Now()) {
-				return relayer.recorder.ResetRound(roundToConfirm.ID)
+				return false, relayer.recorder.ResetRound(roundToConfirm.ID)
 			}
-			return nil
+			return false, nil
 		default:
-			return err
+			return false, err
 		}
 	}
 	roundToRelay, err := relayer.recorder.RoundsToRelay(sourceAggregatorAddr.String())
 	if err != nil {
-		return err
+		return false, err
 	}
 	if roundToRelay == nil {
-		return nil
+		return false, nil
 	}
 
-	return relayer.relay(ctx, shadowAggregator, roundToRelay)
+	return true, relayer.relay(ctx, shadowAggregator, roundToRelay)
 }
 
 func (relayer *contractRelayer) Consume(ctx context.Context) error {
 	for _, p := range relayer.pairs {
-		if err := relayer.consume(ctx, p.sourceAggregatorAddr, p.shadowAggregatorAddr, p.shadowAggregator); err != nil {
+		relayed, err := relayer.consume(ctx, p.sourceAggregatorAddr, p.shadowAggregatorAddr, p.shadowAggregator)
+		if err != nil {
 			return err
 		}
-		time.Sleep(10 * time.Second)
+		if relayed {
+			time.Sleep(10 * time.Second)
+		}
 	}
 
 	return nil
