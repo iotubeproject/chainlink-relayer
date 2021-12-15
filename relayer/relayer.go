@@ -8,10 +8,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/go-lark/lark"
 	"github.com/pkg/errors"
 )
+
+var ErrInsufficientBalance = errors.Errorf("insuffient balance for gas fee")
 
 type (
 	Relayer interface {
@@ -19,6 +23,7 @@ type (
 		Consume(context.Context) error
 	}
 	abstractRelayer struct {
+		notificationBot    *lark.Bot
 		targetClient       *ethclient.Client
 		recorder           *Recorder
 		privateKey         *ecdsa.PrivateKey
@@ -31,12 +36,30 @@ type (
 	}
 )
 
+func (relayer *abstractRelayer) alert(msg string) error {
+	if relayer.notificationBot == nil {
+		return nil
+	}
+	_, err := relayer.notificationBot.PostNotificationV2(
+		lark.NewMsgBuffer(lark.MsgText).Text(msg).Build(),
+	)
+	return err
+}
+
+func (relayer *abstractRelayer) address() common.Address {
+	return crypto.PubkeyToAddress(relayer.privateKey.PublicKey)
+}
+
 func (relayer *abstractRelayer) nonceAt(ctx context.Context) (uint64, error) {
-	return relayer.targetClient.NonceAt(ctx, crypto.PubkeyToAddress(relayer.privateKey.PublicKey), nil)
+	return relayer.targetClient.NonceAt(ctx, relayer.address(), nil)
+}
+
+func (relayer *abstractRelayer) balance(ctx context.Context) (*big.Int, error) {
+	return relayer.targetClient.BalanceAt(ctx, relayer.address(), nil)
 }
 
 func (relayer *abstractRelayer) transactionOpts(ctx context.Context) (*bind.TransactOpts, error) {
-	relayerAddr := crypto.PubkeyToAddress(relayer.privateKey.PublicKey)
+	relayerAddr := relayer.address()
 
 	opts, err := bind.NewKeyedTransactorWithChainID(relayer.privateKey, relayer.targetChainID)
 	if err != nil {
@@ -58,7 +81,7 @@ func (relayer *abstractRelayer) transactionOpts(ctx context.Context) (*bind.Tran
 	}
 	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(opts.GasLimit), opts.GasPrice)
 	if gasFee.Cmp(balance) > 0 {
-		return nil, errors.Errorf("insuffient balance for gas fee")
+		return nil, ErrInsufficientBalance
 	}
 	nonce, err := relayer.targetClient.PendingNonceAt(ctx, relayerAddr)
 	if err != nil {

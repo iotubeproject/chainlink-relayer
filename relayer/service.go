@@ -41,6 +41,7 @@ func NewService(
 	privateKey string,
 	aggregatorPairs map[string]string,
 	exchangeAggregators map[string]map[string]string,
+	hookUrl string,
 ) (*runner.ProducerConsumerRunner, error) {
 	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
 		SkipDefaultTransaction: true,
@@ -80,7 +81,7 @@ func NewService(
 		}
 		relayers = append(relayers, relayer)
 	}
-	relayer, err := NewContractRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetChainID, targetClient)
+	relayer, err := NewContractRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetChainID, targetClient, hookUrl)
 	if err != nil {
 		return nil, err
 	}

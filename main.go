@@ -22,6 +22,7 @@ type Configuration struct {
 	PrivateKey          string                       `yaml:"privateKey"`
 	AggregatorPairs     map[string]string            `yaml:"aggregatorPairs"`
 	ExchangeAggregators map[string]map[string]string `yaml:"exchangeAggregators"`
+	HookUrl             string                       `yaml:"hookUrl"`
 }
 
 var defaultConfig = Configuration{}
@@ -64,6 +65,9 @@ func main() {
 	if url, exists := os.LookupEnv("TARGET_CLIENT_URL"); exists {
 		cfg.TargetClientURL = url
 	}
+	if url, exists := os.LookupEnv("HOOK_URL"); exists {
+		cfg.HookUrl = url
+	}
 
 	service, err := relayer.NewService(
 		cfg.Interval,
@@ -75,6 +79,7 @@ func main() {
 		cfg.PrivateKey,
 		cfg.AggregatorPairs,
 		cfg.ExchangeAggregators,
+		cfg.HookUrl,
 	)
 	if err != nil {
 		log.Fatalln(err)

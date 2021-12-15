@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/go-lark/lark"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/chainlink-relayer/contract"
@@ -25,6 +26,7 @@ type (
 	}
 	contractRelayer struct {
 		abstractRelayer
+		balanceLowerbound      *big.Int
 		lastProcessBlockHeight uint64
 		sourceClient           *ethclient.Client
 		recorder               *Recorder
@@ -40,6 +42,7 @@ func NewContractRelayer(
 	sourceClient *ethclient.Client,
 	targetChainID uint32,
 	targetClient *ethclient.Client,
+	hookUrl string,
 ) (Relayer, error) {
 	pairs := []pair{}
 	for aggregatorAddr, shadowAggregatorAddr := range aggregators {
@@ -57,9 +60,16 @@ func NewContractRelayer(
 	if err != nil {
 		return nil, err
 	}
+	var notificationBot *lark.Bot
+	if hookUrl != "" {
+		notificationBot = lark.NewNotificationBot(hookUrl)
+	}
+	lowerbound, _ := new(big.Int).SetString("10000000000000000000", 10)
 
 	return &contractRelayer{
+		balanceLowerbound: lowerbound,
 		abstractRelayer: abstractRelayer{
+			notificationBot:    notificationBot,
 			targetChainID:      big.NewInt(int64(targetChainID)),
 			gasLimit:           1000000,
 			gasPriceUpperBound: big.NewInt(1000000000000000000),
@@ -236,9 +246,28 @@ func (relayer *contractRelayer) relay(ctx context.Context, shadowAggregator *con
 		return err
 	}
 	if bytes.Compare(report[11:27], digest[:]) != 0 {
-		// TODO: alert admin
-		fmt.Printf("Digest inconsistency %x vs %x for <%s, %d>\n", report[11:27], digest, round.Aggregator, round.Number)
+		notification := fmt.Sprintf("Digest inconsistency %x vs %x for <%s, %d>", report[11:27], digest, round.Aggregator, round.Number)
+		if round.CreatedAt.Add(time.Minute).Before(time.Now()) {
+			if err := relayer.alert(notification); err != nil {
+				fmt.Printf("failed to send notification %+v\n", err)
+			}
+		}
+		fmt.Println(notification)
 		return nil
+	}
+	balance, err := relayer.balance(ctx)
+	if err != nil {
+		return err
+	}
+	if balance.Cmp(relayer.balanceLowerbound) < 0 {
+		if err := relayer.alert(fmt.Sprintf(
+			"Running out of iotx, balance %d is lower than %d, please refill %s right away",
+			balance,
+			relayer.balanceLowerbound,
+			relayer.address(),
+		)); err != nil {
+			fmt.Printf("failed to send notification %+v\n", err)
+		}
 	}
 	fmt.Printf("Submitting <%s, %d>...\n", round.Aggregator, round.Number)
 	tx, err := shadowAggregator.Submit(
