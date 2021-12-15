@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -170,11 +171,22 @@ func (relayer *contractRelayer) consume(
 			return false, err
 		}
 		// TODO: read contract, if already confirmed, skip
-		switch _, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(roundToConfirm.RelayTxHash)); errors.Cause(err) {
+		switch receipt, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(roundToConfirm.RelayTxHash)); errors.Cause(err) {
 		case nil:
-			// TODO: handle receipt.Status != success
-			if err := relayer.recorder.ConfirmRound(roundToConfirm.ID); err != nil {
-				return false, err
+			if receipt == nil {
+				if roundToConfirm.Nonce <= nonce && roundToConfirm.CreatedAt.Add(10*time.Minute).Before(time.Now()) {
+					return false, relayer.recorder.ResetRound(roundToConfirm.ID)
+				}
+				return false, nil
+			}
+			if receipt.Status != 1 {
+				if err := relayer.recorder.FailRound(roundToConfirm.ID); err != nil {
+					return false, err
+				}
+			} else {
+				if err := relayer.recorder.ConfirmRound(roundToConfirm.ID); err != nil {
+					return false, err
+				}
 			}
 		case ethereum.NotFound:
 			if roundToConfirm.Nonce <= nonce && roundToConfirm.CreatedAt.Add(10*time.Minute).Before(time.Now()) {
@@ -218,6 +230,15 @@ func (relayer *contractRelayer) relay(ctx context.Context, shadowAggregator *con
 	report, rs, ss, vs, err := round.FormatData()
 	if err != nil {
 		return err
+	}
+	digest, err := shadowAggregator.ConfigDigest(nil)
+	if err != nil {
+		return err
+	}
+	if bytes.Compare(report[11:27], digest[:]) != 0 {
+		// TODO: alert admin
+		fmt.Printf("Digest inconsistency %x vs %x for <%s, %d>\n", report[11:27], digest, round.Aggregator, round.Number)
+		return nil
 	}
 	fmt.Printf("Submitting <%s, %d>...\n", round.Aggregator, round.Number)
 	tx, err := shadowAggregator.Submit(
