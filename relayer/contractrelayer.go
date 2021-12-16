@@ -18,6 +18,11 @@ import (
 	"github.com/iotexproject/chainlink-relayer/contract"
 )
 
+const (
+	FetchData = iota + 1
+	FetchConfig
+)
+
 type (
 	pair struct {
 		sourceAggregatorAddr common.Address
@@ -26,6 +31,7 @@ type (
 	}
 	contractRelayer struct {
 		abstractRelayer
+		mode                   int
 		balanceLowerbound      *big.Int
 		lastProcessBlockHeight uint64
 		sourceClient           *ethclient.Client
@@ -36,6 +42,7 @@ type (
 
 func NewContractRelayer(
 	privateKey string,
+	mode int,
 	startHeight uint64,
 	recorder *Recorder,
 	aggregators map[common.Address]common.Address,
@@ -46,6 +53,7 @@ func NewContractRelayer(
 ) (Relayer, error) {
 	pairs := []pair{}
 	for aggregatorAddr, shadowAggregatorAddr := range aggregators {
+		fmt.Println(aggregatorAddr, "=>", shadowAggregatorAddr)
 		shadowAggregator, err := contract.NewShadowAggregator(shadowAggregatorAddr, targetClient)
 		if err != nil {
 			return nil, err
@@ -68,10 +76,11 @@ func NewContractRelayer(
 
 	return &contractRelayer{
 		balanceLowerbound: lowerbound,
+		mode:              mode,
 		abstractRelayer: abstractRelayer{
 			notificationBot:    notificationBot,
 			targetChainID:      big.NewInt(int64(targetChainID)),
-			gasLimit:           1000000,
+			gasLimit:           5000000,
 			gasPriceUpperBound: big.NewInt(1000000000000000000),
 			privateKey:         pk,
 			recorder:           recorder,
@@ -95,7 +104,7 @@ func (relayer *contractRelayer) tipHeight(ctx context.Context) (uint64, error) {
 	return tipHeight - 20, nil
 }
 
-func (relayer *contractRelayer) pullRounds(
+func (relayer *contractRelayer) pullData(
 	ctx context.Context,
 	tipHeight uint64,
 	sourceAggregatorAddr, shadowAggregatorAddr common.Address,
@@ -128,29 +137,40 @@ func (relayer *contractRelayer) pullRounds(
 			FromBlock: new(big.Int).SetUint64(startHeight),
 			ToBlock:   new(big.Int).SetUint64(endHeight),
 			Addresses: []common.Address{sourceAggregatorAddr},
-			Topics:    [][]common.Hash{{aggregatorABI.Events[EventNewRound].ID}},
+			Topics:    [][]common.Hash{{aggregatorABI.Events[EventNewRound].ID, aggregatorABI.Events[EventConfigSet].ID}},
 		},
 	)
 	if err != nil {
 		return err
 	}
-	rounds := make([]*Round, len(logs))
-	for i, log := range logs {
-		tx, _, err := relayer.sourceClient.TransactionByHash(ctx, log.TxHash)
-		if err != nil {
-			return err
+	rounds := []*Round{}
+	configs := []*ConfigSet{}
+	for _, log := range logs {
+		switch log.Topics[0] {
+		case aggregatorABI.Events[EventNewRound].ID:
+			tx, _, err := relayer.sourceClient.TransactionByHash(ctx, log.TxHash)
+			if err != nil {
+				return err
+			}
+			round, err := NewRound(log, tx)
+			if err != nil {
+				return err
+			}
+			fmt.Println(">", round.Aggregator, round.Number)
+			rounds = append(rounds, round)
+		case aggregatorABI.Events[EventConfigSet].ID:
+			config, err := NewConfigSet(log)
+			if err != nil {
+				return err
+			}
+			configs = append(configs, config)
 		}
-		round, err := NewRound(log, tx)
-		if err != nil {
-			return err
-		}
-		rounds[i] = round
 	}
-	if len(rounds) > 0 {
-		fmt.Printf("%s: %d fetched from %d to %d\n", sourceAggregatorAddr, len(rounds), startHeight, endHeight)
+	if len(rounds) > 0 || len(configs) > 0 {
+		fmt.Printf("%s: %d rounds and %d configs fetched from %d to %d\n", sourceAggregatorAddr, len(rounds), len(configs), startHeight, endHeight)
 	}
 
-	return relayer.recorder.PutRounds(shadowAggregatorAddr.String(), strconv.FormatUint(endHeight, 10), rounds)
+	return relayer.recorder.PutRounds(shadowAggregatorAddr.String(), strconv.FormatUint(endHeight, 10), rounds, configs)
 }
 
 func (relayer *contractRelayer) Produce(ctx context.Context) error {
@@ -159,7 +179,8 @@ func (relayer *contractRelayer) Produce(ctx context.Context) error {
 		return err
 	}
 	for _, p := range relayer.pairs {
-		if err := relayer.pullRounds(ctx, tipHeight, p.sourceAggregatorAddr, p.shadowAggregatorAddr, p.shadowAggregator); err != nil {
+		if err := relayer.pullData(ctx, tipHeight, p.sourceAggregatorAddr, p.shadowAggregatorAddr, p.shadowAggregator); err != nil {
+			fmt.Printf("failed to pull data for %s: %+v\n", p.shadowAggregatorAddr, err)
 			return err
 		}
 	}
@@ -207,15 +228,23 @@ func (relayer *contractRelayer) consume(
 			return false, err
 		}
 	}
-	roundToRelay, err := relayer.recorder.RoundsToRelay(sourceAggregatorAddr.String())
-	if err != nil {
-		return false, err
+	// TODO: confirm ConfigSet
+	var roundToRelay *Round
+	if (relayer.mode & FetchData) != 0 {
+		roundToRelay, err = relayer.recorder.RoundsToRelay(sourceAggregatorAddr.String())
+		if err != nil {
+			return false, err
+		}
 	}
-	if roundToRelay == nil {
-		return false, nil
+	var configToRelay *ConfigSet
+	if (relayer.mode & FetchConfig) != 0 {
+		configToRelay, err = relayer.recorder.ConfigToRelay(sourceAggregatorAddr.String())
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return true, relayer.relay(ctx, shadowAggregator, roundToRelay)
+	return true, relayer.relay(ctx, shadowAggregator, roundToRelay, configToRelay)
 }
 
 func (relayer *contractRelayer) Consume(ctx context.Context) error {
@@ -232,27 +261,13 @@ func (relayer *contractRelayer) Consume(ctx context.Context) error {
 	return nil
 }
 
-func (relayer *contractRelayer) relay(ctx context.Context, shadowAggregator *contract.ShadowAggregator, round *Round) error {
-	opts, err := relayer.transactionOpts(ctx)
-	if err != nil {
-		return err
-	}
-	report, rs, ss, vs, err := round.FormatData()
-	if err != nil {
-		return err
-	}
-	digest, err := shadowAggregator.ConfigDigest(nil)
-	if err != nil {
-		return err
-	}
-	if bytes.Compare(report[11:27], digest[:]) != 0 {
-		notification := fmt.Sprintf("Digest inconsistency %x vs %x for <%s, %d>", report[11:27], digest, round.Aggregator, round.Number)
-		if round.CreatedAt.Add(time.Minute).Before(time.Now()) {
-			if err := relayer.alert(notification); err != nil {
-				fmt.Printf("failed to send notification %+v\n", err)
-			}
-		}
-		fmt.Println(notification)
+func (relayer *contractRelayer) relay(
+	ctx context.Context,
+	shadowAggregator *contract.ShadowAggregator,
+	round *Round,
+	config *ConfigSet,
+) error {
+	if round == nil && config == nil {
 		return nil
 	}
 	balance, err := relayer.balance(ctx)
@@ -260,26 +275,66 @@ func (relayer *contractRelayer) relay(ctx context.Context, shadowAggregator *con
 		return err
 	}
 	if balance.Cmp(relayer.balanceLowerbound) < 0 {
-		if err := relayer.alert(fmt.Sprintf(
+		relayer.alert(fmt.Sprintf(
 			"Running out of iotx, balance %d is lower than %d, please refill %s right away",
 			balance,
 			relayer.balanceLowerbound,
 			relayer.address(),
-		)); err != nil {
-			fmt.Printf("failed to send notification %+v\n", err)
-		}
+		))
 	}
-	fmt.Printf("Submitting <%s, %d>...\n", round.Aggregator, round.Number)
-	tx, err := shadowAggregator.Submit(
-		opts,
-		report,
-		rs,
-		ss,
-		vs,
-	)
+	digest, err := shadowAggregator.ConfigDigest(nil)
 	if err != nil {
-		fmt.Printf("failed to relay <%s, %d>, %+v\n", round.Aggregator, round.Number, err)
 		return err
 	}
-	return relayer.recorder.SetRoundRelayTxHash(round.ID, tx.Hash(), opts.From, tx.Nonce())
+	opts, err := relayer.transactionOpts(ctx)
+	if err != nil {
+		return err
+	}
+	if round != nil {
+		report, rs, ss, vs, err := round.FormatData()
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(report[11:27], digest[:]) == 0 {
+			fmt.Printf("Submitting <%s, %d>...\n", round.Aggregator, round.Number)
+			tx, err := shadowAggregator.Submit(
+				opts,
+				report,
+				rs,
+				ss,
+				vs,
+			)
+			if err != nil {
+				relayer.alert(fmt.Sprintf("failed to relay <%s, %d>, %+v\n", round.Aggregator, round.Number, err))
+				return err
+			}
+			return relayer.recorder.SetRoundRelayTxHash(round.ID, tx.Hash(), opts.From, tx.Nonce())
+		}
+		if config == nil {
+			notification := fmt.Sprintf("Digest inconsistency %x vs %x for <%s, %d>", report[11:27], digest, round.Aggregator, round.Number)
+			fmt.Println(notification)
+			if round.CreatedAt.Add(time.Minute).Before(time.Now()) {
+				relayer.alert(notification)
+			}
+			return nil
+		}
+	}
+	owner, err := shadowAggregator.Owner(nil)
+	if err != nil {
+		return err
+	}
+	if relayer.address() != owner {
+		fmt.Println("waiting for owner to set config")
+		return nil
+	}
+	signers, transmitters, threshold, version, encoded, err := config.FormatData()
+	if err != nil {
+		return err
+	}
+	tx, err := shadowAggregator.SetConfig(opts, signers, transmitters, threshold, version, encoded)
+	if err != nil {
+		relayer.alert(fmt.Sprintf("failed to relay config <%s, %d>, %+v\n", config.Aggregator, config.ConfigCount, err))
+		return err
+	}
+	return relayer.recorder.SetConfigRelayTxHash(config.ID, tx.Hash(), opts.From, tx.Nonce())
 }

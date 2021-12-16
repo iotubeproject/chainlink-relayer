@@ -36,14 +36,16 @@ type (
 	}
 )
 
-func (relayer *abstractRelayer) alert(msg string) error {
+func (relayer *abstractRelayer) alert(msg string) {
 	if relayer.notificationBot == nil {
-		return nil
+		return
 	}
 	_, err := relayer.notificationBot.PostNotificationV2(
 		lark.NewMsgBuffer(lark.MsgText).Text(msg).Build(),
 	)
-	return err
+	if err != nil {
+		fmt.Printf("failed to send alert %+v\n", err)
+	}
 }
 
 func (relayer *abstractRelayer) address() common.Address {

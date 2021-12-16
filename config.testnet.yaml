@@ -1,3 +1,4 @@
+mode: 3
 interval: 1m
 startHeight: 13642340
 databaseURL: ""

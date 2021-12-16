@@ -19,6 +19,7 @@ import (
 var (
 	ErrGasPriceTooHigh = errors.New("Gas price is too high")
 	EventNewRound      = "NewRound"
+	EventConfigSet     = "ConfigSet"
 	MethodTransmit     = "transmit"
 	aggregatorABI      abi.ABI
 )
@@ -33,6 +34,7 @@ func init() {
 
 func NewService(
 	interval time.Duration,
+	mode int,
 	startHeight uint64,
 	databaseURL string,
 	sourceClientURL string,
@@ -81,7 +83,7 @@ func NewService(
 		}
 		relayers = append(relayers, relayer)
 	}
-	relayer, err := NewContractRelayer(privateKey, startHeight, recorder, pairs, sourceClient, targetChainID, targetClient, hookUrl)
+	relayer, err := NewContractRelayer(privateKey, mode, startHeight, recorder, pairs, sourceClient, targetChainID, targetClient, hookUrl)
 	if err != nil {
 		return nil, err
 	}

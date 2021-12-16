@@ -13,6 +13,7 @@ import (
 )
 
 type Configuration struct {
+	Mode                int                          `yaml:"mode"`
 	Interval            time.Duration                `yaml:"interval"`
 	StartHeight         uint64                       `yaml:"startHeight"`
 	DatabaseURL         string                       `yaml:"databaseURL"`
@@ -71,6 +72,7 @@ func main() {
 
 	service, err := relayer.NewService(
 		cfg.Interval,
+		cfg.Mode,
 		cfg.StartHeight,
 		cfg.DatabaseURL,
 		cfg.SourceClientURL,

@@ -37,7 +37,7 @@ func (Meta) TableName() string {
 
 // NewRecorder returns a recorder for exchange
 func NewRecorder(db *gorm.DB) (*Recorder, error) {
-	if err := db.AutoMigrate(&Round{}, &Record{}, &Meta{}); err != nil {
+	if err := db.AutoMigrate(&Round{}, &Record{}, &ConfigSet{}, &Meta{}); err != nil {
 		return nil, err
 	}
 	return &Recorder{db: db}, nil
@@ -55,10 +55,15 @@ func (recorder *Recorder) Value(key string) (string, error) {
 	}
 }
 
-func (recorder *Recorder) PutRounds(key, value string, rounds []*Round) error {
+func (recorder *Recorder) PutRounds(key, value string, rounds []*Round, configs []*ConfigSet) error {
 	return recorder.db.Transaction(func(tx *gorm.DB) error {
 		if len(rounds) != 0 {
 			if result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(rounds); result.Error != nil {
+				return result.Error
+			}
+		}
+		if len(configs) != 0 {
+			if result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(configs); result.Error != nil {
 				return result.Error
 			}
 		}
@@ -94,6 +99,10 @@ func (recorder *Recorder) setRelayTxHash(tableName string, id uint, txHash commo
 			"nonce":         nonce,
 		}).Error
 	})
+}
+
+func (recorder *Recorder) SetConfigRelayTxHash(id uint, txHash common.Hash, relayer common.Address, nonce uint64) error {
+	return recorder.setRelayTxHash("configs", id, txHash, relayer, nonce)
 }
 
 func (recorder *Recorder) SetRoundRelayTxHash(id uint, txHash common.Hash, relayer common.Address, nonce uint64) error {
@@ -134,6 +143,10 @@ func (recorder *Recorder) RoundToConfirm(aggregator string) (*Round, error) {
 
 func (recorder *Recorder) RoundsToRelay(aggregator string) (*Round, error) {
 	return recorder.roundByStatus(New, aggregator)
+}
+
+func (recorder *Recorder) ConfigToRelay(aggregator string) (*ConfigSet, error) {
+	return recorder.configByStatus(New, aggregator)
 }
 
 func (recorder *Recorder) RecordToConfirm(aggregator string) (*Record, error) {
@@ -177,6 +190,27 @@ func (recorder *Recorder) recordByStatus(status string, aggregators ...string) (
 	case nil:
 		if len(records) > 0 {
 			return records[0], nil
+		}
+		return nil, nil
+	case gorm.ErrRecordNotFound:
+		return nil, nil
+	default:
+		return nil, result.Error
+	}
+}
+
+func (recorder *Recorder) configByStatus(status string, aggregators ...string) (*ConfigSet, error) {
+	configs := []*ConfigSet{}
+	tx := recorder.db.Table("configs")
+	if len(aggregators) == 0 {
+		tx = tx.Where("status = ?", status)
+	} else {
+		tx = tx.Where("status = ? AND aggregator in ?", status, aggregators)
+	}
+	switch result := tx.Limit(1).Order("created_at ASC, config_count ASC").Find(&configs); errors.Cause(result.Error) {
+	case nil:
+		if len(configs) > 0 {
+			return configs[0], nil
 		}
 		return nil, nil
 	case gorm.ErrRecordNotFound:
