@@ -1,10 +1,10 @@
 # chainlink-relayer
 Chainlink Relayer instantly relays Chainlink price feeds on Ethereum to IoTeX network, for enabling dApps where price feeds are needed
 - The prices are relayed to a contract (called shadow aggregator) on IoTeX which has exactly the same interface as Chainlink's aggregator, and it makes dApps to migrate to use Chainlink effortltessly once their integration with IoTeX is done.
+- The client waits for 20 blocks (around 5 minutes) to confirm a transaction. 
 - Anyone can run a relayer to relay the information. So it is permissionless!
 
-
-## Aggregators
+## Shadow Aggregators
 For each aggregator on Ethereum, we will create a shadow aggregator on IoTeX. 
 
 **IoTeX Testnet**
@@ -31,6 +31,11 @@ The table below lists the shadow aggregators deployed on IoTeX testnet:
 |Pair |Dec|Aggregator|
 |----|----|----|
 |IOTX/USD|8|[0x267Ef702F3422cC55C617218a4fB84446F5Ec646](https://iotexscan.io/address/0x267Ef702F3422cC55C617218a4fB84446F5Ec646)|
+
+## Exchange Aggregators
+Exchange aggregator has the same interface as Chainlink aggregator. The prices are read from exchanges, and the medium value of these prices will be feed to exchange aggregator by permitted relayers if
+- the value is of a 0.5% deviation from the last price
+- or the time interval is more than 1 hour  
 
 ## Run a Relayer
 ### Prepare Config File

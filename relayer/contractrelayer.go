@@ -156,7 +156,6 @@ func (relayer *contractRelayer) pullData(
 			if err != nil {
 				return err
 			}
-			fmt.Println(">", round.Aggregator, round.Number)
 			rounds = append(rounds, round)
 		case aggregatorABI.Events[EventConfigSet].ID:
 			config, err := NewConfigSet(log)
