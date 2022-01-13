@@ -37,6 +37,8 @@ Exchange aggregator has the same interface as Chainlink aggregator. The prices a
 - the value is of a 0.5% deviation from the last price
 - or the time interval is more than 1 hour  
 
+Exchanges used for fetching IOTX price are binance, huobi, coingeko, kucoin, coinbase. 
+
 ## Run a Relayer
 ### Prepare Config File
 1. fill "databaseURL" with your DB link
