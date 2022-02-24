@@ -1,6 +1,6 @@
 mode: 3
 interval: 1m
-startHeight: 13642340
+startHeight: 14270500
 databaseURL: ""
 aggregatorPairs:
   # BTC
@@ -15,6 +15,8 @@ aggregatorPairs:
   0xa964273552c1dba201f5f000215f5bd5576e8f93: 0x63Bd61A642d1f3dbf1f47006AC03CD7e7eb72f63
   # DAI
   0xdec0a100ead1faa37407f0edc76033426cf90b82: 0x9673b1b3fbB96E24f1C1AB40421Db9465f0f1151
+  # IOTX
+  0x910bd38d1c8d06d9c32b92aed3833dd503ee1321: 0xf55dA02f8266eC89A58C6De361cf92ce9cee21fe
 sourceClientURL: ""
 targetClientURL: "https://babel-api.testnet.iotex.io"
 targetChainID: 4690
