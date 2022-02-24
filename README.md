@@ -17,6 +17,7 @@ The table below lists the shadow aggregators deployed on IoTeX testnet:
 |USDC/USD|8|[0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6](https://etherscan.io/address/0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6)|[0xB1aa8c29d96720A80AFe9e3F6CD48822D27C8d54](https://testnet.iotexscan.io/address/0xB1aa8c29d96720A80AFe9e3F6CD48822D27C8d54)|
 |USDT/USD|8|[0x3E7d1eAB13ad0104d2750B8863b489D65364e32D](https://etherscan.io/address/0x3E7d1eAB13ad0104d2750B8863b489D65364e32D)|[0x63Bd61A642d1f3dbf1f47006AC03CD7e7eb72f63](https://testnet.iotexscan.io/address/0x63Bd61A642d1f3dbf1f47006AC03CD7e7eb72f63)|
 |DAI/USD|8|[0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9](https://etherscan.io/address/0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9)|[0x9673b1b3fbB96E24f1C1AB40421Db9465f0f1151](https://testnet.iotexscan.io/address/0x9673b1b3fbB96E24f1C1AB40421Db9465f0f1151)|
+|IOTX/USD|8|[0x96c45535d235148Dc3ABA1E48A6E3cFB3510f4E2](https://etherscan.io/address/0x96c45535d235148Dc3ABA1E48A6E3cFB3510f4E2)|[0xf55dA02f8266eC89A58C6De361cf92ce9cee21fe](https://testnet.iotexscan.io/address/0xf55dA02f8266eC89A58C6De361cf92ce9cee21fe)|
 
 **IoTeX Mainnet**
 |Pair |Dec|Aggregator|Shadow Aggregator|
@@ -27,6 +28,7 @@ The table below lists the shadow aggregators deployed on IoTeX testnet:
 |USDC/USD|8|[0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6](https://etherscan.io/address/0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6)|[0xC296E7e92B3Ce84e9bF5780a47eF231E14A4506d](https://iotexscan.io/address/0xC296E7e92B3Ce84e9bF5780a47eF231E14A4506d)|
 |USDT/USD|8|[0x3E7d1eAB13ad0104d2750B8863b489D65364e32D](https://etherscan.io/address/0x3E7d1eAB13ad0104d2750B8863b489D65364e32D)|[0xa900b5eB48F5A1122F9bfA660dd0B61Ddc56C872](https://iotexscan.io/address/0xa900b5eB48F5A1122F9bfA660dd0B61Ddc56C872)|
 |DAI/USD|8|[0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9](https://etherscan.io/address/0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9)|[0x95eBC95FF2b81866D7Bc1c3c1257533795CF96B7](https://iotexscan.io/address/0x95eBC95FF2b81866D7Bc1c3c1257533795CF96B7)|
+|IOTX/USD|8|[0x96c45535d235148Dc3ABA1E48A6E3cFB3510f4E2](https://etherscan.io/address/0x96c45535d235148Dc3ABA1E48A6E3cFB3510f4E2)|[0x0F7AbD6b99d5D6876C812dAc22A2c8A8A6297D90](https://iotexscan.io/address/0x95eBC95FF2b81866D7Bc1c3c1257533795CF96B7)|
 
 |Pair |Dec|Aggregator|
 |----|----|----|
