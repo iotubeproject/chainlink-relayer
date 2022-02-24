@@ -15,14 +15,16 @@ aggregatorPairs:
   0xa964273552c1dba201f5f000215f5bd5576e8f93: 0xa900b5eB48F5A1122F9bfA660dd0B61Ddc56C872
   # DAI
   0xdec0a100ead1faa37407f0edc76033426cf90b82: 0x95eBC95FF2b81866D7Bc1c3c1257533795CF96B7
+  # IOTX
+  0x910bd38d1c8d06d9c32b92aed3833dd503ee1321: 0x0F7AbD6b99d5D6876C812dAc22A2c8A8A6297D90
 sourceClientURL: ""
 targetClientURL: "https://babel-api.mainnet.iotex.io"
 targetChainID: 4689
 privateKey: ""
 exchangeAggregators:
-  0x267Ef702F3422cC55C617218a4fB84446F5Ec646:
-    binance: IOTX
-    coinbase: IOTX
-    coingecko: iotex
-    huobi: iotx
-    kucoin: IOTX
+#  0x267Ef702F3422cC55C617218a4fB84446F5Ec646:
+#    binance: IOTX
+#    coinbase: IOTX
+#    coingecko: iotex
+#    huobi: iotx
+#    kucoin: IOTX
