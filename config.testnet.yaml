@@ -22,12 +22,12 @@ targetClientURL: "https://babel-api.testnet.iotex.io"
 targetChainID: 4690
 privateKey: ""
 exchangeAggregators:
-  0xe7B1764Da9c047Be53EC980F7Af46268912e31cd:
-    binance: IOTX
-    coinbase: IOTX
-    coingecko: iotex
-    huobi: iotx
-    kucoin: IOTX
+#   0xe7B1764Da9c047Be53EC980F7Af46268912e31cd:
+#     binance: IOTX
+#     coinbase: IOTX
+#     coingecko: iotex
+#     huobi: iotx
+#     kucoin: IOTX
 
 # 0.5% deviration or 1 hour
 # https://api.coinbase.com/v2/exchange-rates?currency=IOTX
