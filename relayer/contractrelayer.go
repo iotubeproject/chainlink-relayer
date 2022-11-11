@@ -323,7 +323,7 @@ func (relayer *contractRelayer) relay(
 		return err
 	}
 	if relayer.address() != owner {
-		fmt.Println("waiting for owner to set config")
+		fmt.Printf("relayer %s is not owner %s, waiting for owner to set config\n", relayer.address(), owner)
 		return nil
 	}
 	signers, transmitters, threshold, version, encoded, err := config.FormatData()
