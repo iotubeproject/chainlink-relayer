@@ -18,6 +18,7 @@ const (
 	Relayed          = "relayed"
 	Confirmed        = "confirmed"
 	Failed           = "failed"
+	Skipped          = "skipped"
 )
 
 type (
@@ -123,6 +124,10 @@ func (recorder *Recorder) ConfirmRecord(id uint) error {
 
 func (recorder *Recorder) FailRound(id uint) error {
 	return recorder.updateStatus("rounds", id, Failed)
+}
+
+func (recorder *Recorder) SkipRound(id uint) error {
+	return recorder.updateStatus("rounds", id, Skipped)
 }
 
 func (recorder *Recorder) FailRecord(id uint) error {

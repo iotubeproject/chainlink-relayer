@@ -295,7 +295,18 @@ func (relayer *contractRelayer) relay(
 			return err
 		}
 		if bytes.Compare(report[11:27], digest[:]) == 0 {
-			fmt.Printf("Submitting <%s, %d>...\n", round.Aggregator, round.Number)
+			roundId, err := shadowAggregator.LatestRoundId(nil)
+			if err != nil {
+				err = errors.Wrapf(err, "failed to get round id from shadow aggregator")
+				relayer.alert(err.Error())
+				return err
+			}
+			if round.Number <= roundId.Uint64() {
+				fmt.Printf("Skip <%s %d> which is lower than round %d on chain\n", round.Aggregator, round.Number, roundId)
+				relayer.recorder.SkipRound(round.ID)
+				return nil
+			}
+			fmt.Printf("Submitting <%s, %d> %d...\n", round.Aggregator, round.Number, roundId)
 			tx, err := shadowAggregator.Submit(
 				opts,
 				report,
