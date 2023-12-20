@@ -55,10 +55,12 @@ func NewService(
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("SOURCE CLIENT URL: %s\n", sourceClientURL)
 	sourceClient, err := ethclient.Dial(sourceClientURL)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("TARGET CLIENT URL: %s\n", targetClientURL)
 	targetClient, err := ethclient.Dial(targetClientURL)
 	if err != nil {
 		return nil, err
