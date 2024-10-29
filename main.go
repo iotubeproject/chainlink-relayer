@@ -13,18 +13,18 @@ import (
 )
 
 type Configuration struct {
-	Mode                int                          `yaml:"mode"`
-	Interval            time.Duration                `yaml:"interval"`
-	StartHeight         uint64                       `yaml:"startHeight"`
-	DatabaseURL         string                       `yaml:"databaseURL"`
-	SourceClientURL     string                       `yaml:"sourceClientURL"`
-	TargetClientURL     string                       `yaml:"targetClientURL"`
-	TargetChainID       uint32                       `yaml:"targetChainID"`
-	PrivateKey          string                       `yaml:"privateKey"`
-	AggregatorPairs     map[string]string            `yaml:"aggregatorPairs"`
-	ExchangeAggregators map[string]map[string]string `yaml:"exchangeAggregators"`
-	HookUrl             string                       `yaml:"hookUrl"`
-	BatchSize           uint64                       `yaml:"batchSize"`
+	Mode                int                                 `yaml:"mode"`
+	Interval            time.Duration                       `yaml:"interval"`
+	StartHeight         uint64                              `yaml:"startHeight"`
+	DatabaseURL         string                              `yaml:"databaseURL"`
+	SourceClientURL     string                              `yaml:"sourceClientURL"`
+	TargetClientURL     string                              `yaml:"targetClientURL"`
+	TargetChainID       uint32                              `yaml:"targetChainID"`
+	PrivateKey          string                              `yaml:"privateKey"`
+	AggregatorPairs     map[string]relayer.AggregatorConfig `yaml:"aggregatorPairs"`
+	ExchangeAggregators map[string]map[string]string        `yaml:"exchangeAggregators"`
+	HookUrl             string                              `yaml:"hookUrl"`
+	BatchSize           uint64                              `yaml:"batchSize"`
 }
 
 var defaultConfig = Configuration{}

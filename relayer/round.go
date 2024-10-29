@@ -7,8 +7,10 @@
 package relayer
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -33,6 +35,7 @@ type Round struct {
 
 func NewRound(log types.Log, tx *types.Transaction) (*Round, error) {
 	event := new(contract.AggregatorNewRound)
+	fmt.Println("log.Data", log.Data)
 	if err := aggregatorABI.UnpackIntoInterface(event, EventNewRound, log.Data); err != nil {
 		return nil, err
 	}
@@ -42,29 +45,60 @@ func NewRound(log types.Log, tx *types.Transaction) (*Round, error) {
 			indexed = append(indexed, arg)
 		}
 	}
+	fmt.Println("log.Topics", log.Topics)
 	if err := abi.ParseTopics(event, indexed, log.Topics[1:]); err != nil {
 		return nil, err
 	}
+	var report, rs, ss []byte
+	var vs [32]byte
 	data := tx.Data()
-	res, err := aggregatorABI.Methods[MethodTransmit].Inputs.Unpack(data[4:])
-	if err != nil {
-		return nil, err
+	if bytes.HasPrefix(data, forwarderABI.Methods[MethodForward].ID) {
+		res, err := forwarderABI.Methods[MethodForward].Inputs.Unpack(data[4:])
+		if err != nil {
+			return nil, err
+		}
+		data = res[1].([]byte)
+		if !bytes.HasPrefix(data, ocr2aggregatorABI.Methods[MethodTransmit].ID) {
+			return nil, fmt.Errorf("invalid data")
+		}
+		res, err = ocr2aggregatorABI.Methods[MethodTransmit].Inputs.Unpack(data[4:])
+		if err != nil {
+			return nil, err
+		}
+		report = res[1].([]byte)
+		rs, err = json.Marshal(res[2].([][32]byte))
+		if err != nil {
+			return nil, err
+		}
+		ss, err = json.Marshal(res[3].([][32]byte))
+		if err != nil {
+			return nil, err
+		}
+		vs = res[4].([32]byte)
+	} else {
+		if !bytes.HasPrefix(data, aggregatorABI.Methods[MethodTransmit].ID) {
+			return nil, fmt.Errorf("invalid data")
+		}
+		res, err := aggregatorABI.Methods[MethodTransmit].Inputs.Unpack(data[4:])
+		if err != nil {
+			return nil, err
+		}
+		report = res[0].([]byte)
+		rs, err = json.Marshal(res[1].([][32]byte))
+		if err != nil {
+			return nil, err
+		}
+		ss, err = json.Marshal(res[2].([][32]byte))
+		if err != nil {
+			return nil, err
+		}
+		vs = res[3].([32]byte)
 	}
-	rs, err := json.Marshal(res[1].([][32]byte))
-	if err != nil {
-		return nil, err
-	}
-	ss, err := json.Marshal(res[2].([][32]byte))
-	if err != nil {
-		return nil, err
-	}
-	vs := res[3].([32]byte)
-
 	return &Round{
 		Aggregator: log.Address.String(),
 		Number:     event.RoundId.Uint64(),
 		Ts:         time.Unix(event.StartedAt.Int64(), 0),
-		Report:     hex.EncodeToString(res[0].([]byte)),
+		Report:     hex.EncodeToString(report),
 		Rs:         hex.EncodeToString(rs),
 		Ss:         hex.EncodeToString(ss),
 		Vs:         hex.EncodeToString(vs[:]),

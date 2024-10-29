@@ -17,16 +17,28 @@ import (
 )
 
 var (
-	ErrGasPriceTooHigh = errors.New("Gas price is too high")
-	EventNewRound      = "NewRound"
-	EventConfigSet     = "ConfigSet"
-	MethodTransmit     = "transmit"
-	aggregatorABI      abi.ABI
+	ErrGasPriceTooHigh   = errors.New("Gas price is too high")
+	EventNewRound        = "NewRound"
+	EventNewTransmission = "NewTransmission"
+	EventConfigSet       = "ConfigSet"
+	MethodTransmit       = "transmit"
+	MethodForward        = "forward"
+	aggregatorABI        abi.ABI
+	forwarderABI         abi.ABI
+	ocr2aggregatorABI    abi.ABI
 )
 
 func init() {
 	var err error
 	aggregatorABI, err = abi.JSON(strings.NewReader(contract.AggregatorABI))
+	if err != nil {
+		log.Panic(err)
+	}
+	forwarderABI, err = abi.JSON(strings.NewReader(contract.ForwarderABI))
+	if err != nil {
+		log.Panic(err)
+	}
+	ocr2aggregatorABI, err = abi.JSON(strings.NewReader(contract.OCR2AggregatorABI))
 	if err != nil {
 		log.Panic(err)
 	}
@@ -41,7 +53,7 @@ func NewService(
 	targetChainID uint32,
 	targetClientURL string,
 	privateKey string,
-	aggregatorPairs map[string]string,
+	aggregatorPairs map[string]AggregatorConfig,
 	exchangeAggregators map[string]map[string]string,
 	hookUrl string,
 	batchSize uint64,
@@ -66,10 +78,6 @@ func NewService(
 	if err != nil {
 		return nil, err
 	}
-	pairs := map[common.Address]common.Address{}
-	for origin, shadow := range aggregatorPairs {
-		pairs[common.HexToAddress(origin)] = common.HexToAddress(shadow)
-	}
 	relayers := []Relayer{}
 	for aggregatorAddr, exchanges := range exchangeAggregators {
 		exs := []exchange.Exchange{}
@@ -89,7 +97,7 @@ func NewService(
 	if batchSize == 0 {
 		batchSize = 99
 	}
-	relayer, err := NewContractRelayer(privateKey, mode, startHeight, recorder, pairs, sourceClient, targetChainID, targetClient, hookUrl, batchSize)
+	relayer, err := NewContractRelayer(privateKey, mode, startHeight, recorder, aggregatorPairs, sourceClient, targetChainID, targetClient, hookUrl, batchSize)
 	if err != nil {
 		return nil, err
 	}

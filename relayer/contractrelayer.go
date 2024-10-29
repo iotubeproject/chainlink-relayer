@@ -24,10 +24,15 @@ const (
 )
 
 type (
+	AggregatorConfig struct {
+		AggregatorAddr string `json:"aggregatorAddr" yaml:"aggregatorAddr"`
+		IsDummy        bool   `json:"isDummy" yaml:"isDummy"`
+	}
 	pair struct {
 		sourceAggregatorAddr common.Address
 		shadowAggregatorAddr common.Address
-		shadowAggregator     *contract.ShadowAggregator
+		shadowAggregator     interface{}
+		dummy                bool
 	}
 	contractRelayer struct {
 		abstractRelayer
@@ -38,6 +43,7 @@ type (
 		sourceClient           *ethclient.Client
 		recorder               *Recorder
 		pairs                  []pair
+		isDummyAggregator      map[common.Address]bool
 	}
 )
 
@@ -46,7 +52,7 @@ func NewContractRelayer(
 	mode int,
 	startHeight uint64,
 	recorder *Recorder,
-	aggregators map[common.Address]common.Address,
+	aggregators map[string]AggregatorConfig,
 	sourceClient *ethclient.Client,
 	targetChainID uint32,
 	targetClient *ethclient.Client,
@@ -54,17 +60,34 @@ func NewContractRelayer(
 	batchSize uint64,
 ) (Relayer, error) {
 	pairs := []pair{}
-	for aggregatorAddr, shadowAggregatorAddr := range aggregators {
-		fmt.Println(aggregatorAddr, "=>", shadowAggregatorAddr)
-		shadowAggregator, err := contract.NewShadowAggregator(shadowAggregatorAddr, targetClient)
-		if err != nil {
-			return nil, err
+	isDummyAggregator := make(map[common.Address]bool)
+	for aggregatorAddr, config := range aggregators {
+		fmt.Println(aggregatorAddr, "=>", config.AggregatorAddr, config.IsDummy)
+		if config.IsDummy {
+			dummyAggragator, err := contract.NewDummyAggregator(common.HexToAddress(config.AggregatorAddr), targetClient)
+			if err != nil {
+				return nil, err
+			}
+			pairs = append(pairs, pair{
+				sourceAggregatorAddr: common.HexToAddress(aggregatorAddr),
+				shadowAggregatorAddr: common.HexToAddress(config.AggregatorAddr),
+				shadowAggregator:     dummyAggragator,
+				dummy:                true,
+			})
+			isDummyAggregator[common.HexToAddress(aggregatorAddr)] = true
+		} else {
+			shadowAggregator, err := contract.NewShadowAggregator(common.HexToAddress(config.AggregatorAddr), targetClient)
+			if err != nil {
+				return nil, err
+			}
+			pairs = append(pairs, pair{
+				sourceAggregatorAddr: common.HexToAddress(aggregatorAddr),
+				shadowAggregatorAddr: common.HexToAddress(config.AggregatorAddr),
+				shadowAggregator:     shadowAggregator,
+				dummy:                false,
+			})
+			isDummyAggregator[common.HexToAddress(aggregatorAddr)] = false
 		}
-		pairs = append(pairs, pair{
-			sourceAggregatorAddr: aggregatorAddr,
-			shadowAggregatorAddr: shadowAggregatorAddr,
-			shadowAggregator:     shadowAggregator,
-		})
 	}
 	pk, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
@@ -89,6 +112,7 @@ func NewContractRelayer(
 			targetClient:       targetClient,
 		},
 		pairs:                  pairs,
+		isDummyAggregator:      isDummyAggregator,
 		lastProcessBlockHeight: startHeight,
 		batchSize:              batchSize,
 		recorder:               recorder,
@@ -134,22 +158,46 @@ func (relayer *contractRelayer) pullData(
 	if tipHeight < endHeight {
 		endHeight = tipHeight
 	}
+	fmt.Println("Fetching data from", startHeight, "to", endHeight)
 	logs, err := relayer.sourceClient.FilterLogs(ctx,
 		ethereum.FilterQuery{
 			FromBlock: new(big.Int).SetUint64(startHeight),
 			ToBlock:   new(big.Int).SetUint64(endHeight),
 			Addresses: []common.Address{sourceAggregatorAddr},
-			Topics:    [][]common.Hash{{aggregatorABI.Events[EventNewRound].ID, aggregatorABI.Events[EventConfigSet].ID}},
+			Topics: [][]common.Hash{{
+				ocr2aggregatorABI.Events[EventNewTransmission].ID,
+				// ocr2aggregatorABI.Events[EventConfigSet].ID,
+				aggregatorABI.Events[EventNewRound].ID,
+				aggregatorABI.Events[EventConfigSet].ID}},
 		},
 	)
+	fmt.Println("Fetched", len(logs), "logs", err)
 	if err != nil {
 		return err
 	}
+	transmissions := []*Transmission{}
 	rounds := []*Round{}
 	configs := []*ConfigSet{}
 	for _, log := range logs {
+		fmt.Println(log.BlockNumber, log.TxHash.Hex(), log.Topics[0].Hex())
 		switch log.Topics[0] {
+		case ocr2aggregatorABI.Events[EventNewTransmission].ID:
+			if !relayer.isDummyAggregator[log.Address] {
+				continue
+			}
+			header, err := relayer.sourceClient.HeaderByNumber(ctx, new(big.Int).SetUint64(log.BlockNumber))
+			if err != nil {
+				return err
+			}
+			transmission, err := NewTransmission(log, header.Time)
+			if err != nil {
+				return err
+			}
+			transmissions = append(transmissions, transmission)
 		case aggregatorABI.Events[EventNewRound].ID:
+			if relayer.isDummyAggregator[log.Address] {
+				continue
+			}
 			tx, _, err := relayer.sourceClient.TransactionByHash(ctx, log.TxHash)
 			if err != nil {
 				return err
@@ -171,7 +219,7 @@ func (relayer *contractRelayer) pullData(
 		fmt.Printf("%s: %d rounds and %d configs fetched from %d to %d\n", sourceAggregatorAddr, len(rounds), len(configs), startHeight, endHeight)
 	}
 
-	return relayer.recorder.PutRounds(shadowAggregatorAddr.String(), strconv.FormatUint(endHeight, 10), rounds, configs)
+	return relayer.recorder.PutRounds(shadowAggregatorAddr.String(), strconv.FormatUint(endHeight, 10), transmissions, rounds, configs)
 }
 
 func (relayer *contractRelayer) Produce(ctx context.Context) error {
@@ -191,8 +239,75 @@ func (relayer *contractRelayer) Produce(ctx context.Context) error {
 func (relayer *contractRelayer) consume(
 	ctx context.Context,
 	sourceAggregatorAddr common.Address,
-	shadowAggregator *contract.ShadowAggregator,
+	shadowAggregator interface{},
+	isDummy bool,
 ) (bool, error) {
+	if isDummy {
+		return relayer.consumeDummy(ctx, sourceAggregatorAddr, shadowAggregator.(*contract.DummyAggregator))
+	}
+	return relayer.consumeShadow(ctx, sourceAggregatorAddr, shadowAggregator.(*contract.ShadowAggregator))
+}
+
+func (relayer *contractRelayer) consumeDummy(ctx context.Context, sourceAggregatorAddr common.Address, dummyAggregator *contract.DummyAggregator) (bool, error) {
+	toConfirm, err := relayer.recorder.TransmissionToConfirm(sourceAggregatorAddr.String())
+	if err != nil {
+		return false, err
+	}
+	if toConfirm != nil {
+		nonce, err := relayer.nonceAt(ctx)
+		if err != nil {
+			return false, err
+		}
+		switch receipt, err := relayer.targetClient.TransactionReceipt(ctx, common.HexToHash(toConfirm.RelayTxHash)); errors.Cause(err) {
+		case nil:
+			if receipt == nil {
+				if toConfirm.Nonce <= nonce && toConfirm.CreatedAt.Add(10*time.Minute).Before(time.Now()) {
+					return false, relayer.recorder.ResetTransmission(toConfirm.ID)
+				}
+				return false, nil
+			}
+			if receipt.Status != 1 {
+				if err := relayer.recorder.FailTransmission(toConfirm.ID); err != nil {
+					return false, err
+				}
+			} else {
+				if err := relayer.recorder.ConfirmTransmission(toConfirm.ID); err != nil {
+					return false, err
+				}
+			}
+		case ethereum.NotFound:
+			if toConfirm.Nonce <= nonce && toConfirm.CreatedAt.Add(10*time.Minute).Before(time.Now()) {
+				return false, relayer.recorder.ResetTransmission(toConfirm.ID)
+			}
+			return false, nil
+		default:
+			return false, err
+		}
+	}
+	var toRelay *Transmission
+	if (relayer.mode & FetchData) != 0 {
+		toRelay, err = relayer.recorder.TransmissionToRelay(sourceAggregatorAddr.String())
+		if err != nil {
+			return false, err
+		}
+	}
+	var configToRelay *ConfigSet
+	if (relayer.mode & FetchConfig) != 0 {
+		configToRelay, err = relayer.recorder.ConfigToRelay(sourceAggregatorAddr.String())
+		if err != nil {
+			return false, err
+		}
+	}
+	if toRelay == nil && configToRelay == nil {
+		return false, nil
+	}
+	if err := relayer.checkBalance(ctx); err != nil {
+		return false, err
+	}
+	return true, relayer.relayDummy(ctx, dummyAggregator, toRelay, configToRelay)
+}
+
+func (relayer *contractRelayer) consumeShadow(ctx context.Context, sourceAggregatorAddr common.Address, shadowAggregator *contract.ShadowAggregator) (bool, error) {
 	roundToConfirm, err := relayer.recorder.RoundToConfirm(sourceAggregatorAddr.String())
 	if err != nil {
 		return false, err
@@ -244,13 +359,19 @@ func (relayer *contractRelayer) consume(
 			return false, err
 		}
 	}
+	if roundToRelay == nil && configToRelay == nil {
+		return false, nil
+	}
+	if err := relayer.checkBalance(ctx); err != nil {
+		return false, err
+	}
 
-	return true, relayer.relay(ctx, shadowAggregator, roundToRelay, configToRelay)
+	return true, relayer.relayShadow(ctx, shadowAggregator, roundToRelay, configToRelay)
 }
 
 func (relayer *contractRelayer) Consume(ctx context.Context) error {
 	for _, p := range relayer.pairs {
-		relayed, err := relayer.consume(ctx, p.sourceAggregatorAddr, p.shadowAggregator)
+		relayed, err := relayer.consume(ctx, p.sourceAggregatorAddr, p.shadowAggregator, p.dummy)
 		if err != nil {
 			return err
 		}
@@ -262,15 +383,7 @@ func (relayer *contractRelayer) Consume(ctx context.Context) error {
 	return nil
 }
 
-func (relayer *contractRelayer) relay(
-	ctx context.Context,
-	shadowAggregator *contract.ShadowAggregator,
-	round *Round,
-	config *ConfigSet,
-) error {
-	if round == nil && config == nil {
-		return nil
-	}
+func (relayer *contractRelayer) checkBalance(ctx context.Context) error {
 	balance, err := relayer.balance(ctx)
 	if err != nil {
 		return err
@@ -283,6 +396,76 @@ func (relayer *contractRelayer) relay(
 			relayer.address(),
 		))
 	}
+	return nil
+}
+
+func (relayer *contractRelayer) relayDummy(
+	ctx context.Context,
+	dummyAggregator *contract.DummyAggregator,
+	round *Transmission,
+	config *ConfigSet,
+) error {
+	owner, err := dummyAggregator.Owner(nil)
+	if err != nil {
+		return err
+	}
+	if relayer.address() != owner {
+		fmt.Printf("relayer %s is not owner %s\n", relayer.address(), owner)
+		return nil
+	}
+	opts, err := relayer.transactionOpts(ctx)
+	if err != nil {
+		return err
+	}
+	if round != nil {
+		latest, err := dummyAggregator.LatestRoundData(nil)
+		if err != nil {
+			return err
+		}
+		if latest.RoundId.Uint64() >= uint64(round.AggregatorRoundId) {
+			fmt.Printf("Skip dummy <%s %d> which is lower than round %d on chain\n", round.Aggregator, round.AggregatorRoundId, latest.RoundId)
+			relayer.recorder.SkipRound(round.ID)
+			return nil
+		}
+		fmt.Printf("Submitting dummy <%s, %d>...\n", round.Aggregator, round.AggregatorRoundId)
+		_, answer, _, _, _, epochAndRound, _, err := round.FormatData()
+		if err != nil {
+			return err
+		}
+		tx, err := dummyAggregator.AddTransmission(
+			opts,
+			epochAndRound,
+			round.AggregatorRoundId,
+			answer,
+			round.ObservationsTimestamp,
+			round.TransmissionTimestamp,
+		)
+		if err != nil {
+			relayer.alert(fmt.Sprintf("failed to relay dummy <%s, %d>, %+v\n", round.Aggregator, round.AggregatorRoundId, err))
+			return err
+		}
+		return relayer.recorder.SetTransmissionRelayTxHash(round.ID, tx.Hash(), relayer.address(), tx.Nonce())
+	}
+	if config != nil {
+		fmt.Printf("Submitting dummy config <%s, %d>...\n", config.Aggregator, config.ConfigCount)
+		tx, err := dummyAggregator.ResetEpochAndRound(
+			opts,
+		)
+		if err != nil {
+			relayer.alert(fmt.Sprintf("failed to relay dummy config <%s, %d>, %+v\n", config.Aggregator, config.ConfigCount, err))
+			return err
+		}
+		return relayer.recorder.SetConfigRelayTxHash(config.ID, tx.Hash(), opts.From, tx.Nonce())
+	}
+	return nil
+}
+
+func (relayer *contractRelayer) relayShadow(
+	ctx context.Context,
+	shadowAggregator *contract.ShadowAggregator,
+	round *Round,
+	config *ConfigSet,
+) error {
 	digest, err := shadowAggregator.ConfigDigest(nil)
 	if err != nil {
 		return err

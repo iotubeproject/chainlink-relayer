@@ -38,7 +38,7 @@ func (Meta) TableName() string {
 
 // NewRecorder returns a recorder for exchange
 func NewRecorder(db *gorm.DB) (*Recorder, error) {
-	if err := db.AutoMigrate(&Round{}, &Record{}, &ConfigSet{}, &Meta{}); err != nil {
+	if err := db.AutoMigrate(&Transmission{}, &Round{}, &Record{}, &ConfigSet{}, &Meta{}); err != nil {
 		return nil, err
 	}
 	return &Recorder{db: db}, nil
@@ -56,8 +56,13 @@ func (recorder *Recorder) Value(key string) (string, error) {
 	}
 }
 
-func (recorder *Recorder) PutRounds(key, value string, rounds []*Round, configs []*ConfigSet) error {
+func (recorder *Recorder) PutRounds(key, value string, transmissions []*Transmission, rounds []*Round, configs []*ConfigSet) error {
 	return recorder.db.Transaction(func(tx *gorm.DB) error {
+		if len(transmissions) != 0 {
+			if result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(transmissions); result.Error != nil {
+				return result.Error
+			}
+		}
 		if len(rounds) != 0 {
 			if result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(rounds); result.Error != nil {
 				return result.Error
@@ -102,6 +107,10 @@ func (recorder *Recorder) setRelayTxHash(tableName string, id uint, txHash commo
 	})
 }
 
+func (recorder *Recorder) SetTransmissionRelayTxHash(id uint, txHash common.Hash, relayer common.Address, nonce uint64) error {
+	return recorder.setRelayTxHash("transmissions", id, txHash, relayer, nonce)
+}
+
 func (recorder *Recorder) SetConfigRelayTxHash(id uint, txHash common.Hash, relayer common.Address, nonce uint64) error {
 	return recorder.setRelayTxHash("configs", id, txHash, relayer, nonce)
 }
@@ -114,6 +123,10 @@ func (recorder *Recorder) SetRecordRelayTxHash(id uint, txHash common.Hash, rela
 	return recorder.setRelayTxHash("records", id, txHash, relayer, nonce)
 }
 
+func (recorder *Recorder) ConfirmTransmission(id uint) error {
+	return recorder.updateStatus("transmissions", id, Confirmed)
+}
+
 func (recorder *Recorder) ConfirmRound(id uint) error {
 	return recorder.updateStatus("rounds", id, Confirmed)
 }
@@ -122,8 +135,16 @@ func (recorder *Recorder) ConfirmRecord(id uint) error {
 	return recorder.updateStatus("records", id, Confirmed)
 }
 
+func (recorder *Recorder) FailTransmission(id uint) error {
+	return recorder.updateStatus("transmissions", id, Failed)
+}
+
 func (recorder *Recorder) FailRound(id uint) error {
 	return recorder.updateStatus("rounds", id, Failed)
+}
+
+func (recorder *Recorder) SkipTransmission(id uint) error {
+	return recorder.updateStatus("transmissions", id, Skipped)
 }
 
 func (recorder *Recorder) SkipRound(id uint) error {
@@ -134,12 +155,24 @@ func (recorder *Recorder) FailRecord(id uint) error {
 	return recorder.updateStatus("records", id, Failed)
 }
 
+func (recorder *Recorder) ResetTransmission(id uint) error {
+	return recorder.updateStatus("transmissions", id, New)
+}
+
 func (recorder *Recorder) ResetRound(id uint) error {
 	return recorder.updateStatus("rounds", id, New)
 }
 
 func (recorder *Recorder) ResetRecord(id uint) error {
 	return recorder.updateStatus("records", id, New)
+}
+
+func (recorder *Recorder) TransmissionToConfirm(aggregator string) (*Transmission, error) {
+	return recorder.transmissionByStatus(Relayed, aggregator)
+}
+
+func (recorder *Recorder) TransmissionToRelay(aggregator string) (*Transmission, error) {
+	return recorder.transmissionByStatus(New, aggregator)
 }
 
 func (recorder *Recorder) RoundToConfirm(aggregator string) (*Round, error) {
@@ -160,6 +193,27 @@ func (recorder *Recorder) RecordToConfirm(aggregator string) (*Record, error) {
 
 func (recorder *Recorder) RecordToRelay(aggregator string) (*Record, error) {
 	return recorder.recordByStatus(New, aggregator)
+}
+
+func (recorder *Recorder) transmissionByStatus(status string, aggregators ...string) (*Transmission, error) {
+	transmissions := []*Transmission{}
+	tx := recorder.db.Table("transmissions")
+	if len(aggregators) == 0 {
+		tx = tx.Where("status = ?", status)
+	} else {
+		tx = tx.Where("status = ? AND aggregator in ?", status, aggregators)
+	}
+	switch result := tx.Limit(1).Order("created_at ASC, aggregator_round_id ASC").Find(&transmissions); errors.Cause(result.Error) {
+	case nil:
+		if len(transmissions) > 0 {
+			return transmissions[0], nil
+		}
+		return nil, nil
+	case gorm.ErrRecordNotFound:
+		return nil, nil
+	default:
+		return nil, result.Error
+	}
 }
 
 func (recorder *Recorder) roundByStatus(status string, aggregators ...string) (*Round, error) {
