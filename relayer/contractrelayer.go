@@ -34,6 +34,7 @@ type (
 		mode                   int
 		balanceLowerbound      *big.Int
 		lastProcessBlockHeight uint64
+		batchSize              uint64
 		sourceClient           *ethclient.Client
 		recorder               *Recorder
 		pairs                  []pair
@@ -50,6 +51,7 @@ func NewContractRelayer(
 	targetChainID uint32,
 	targetClient *ethclient.Client,
 	hookUrl string,
+	batchSize uint64,
 ) (Relayer, error) {
 	pairs := []pair{}
 	for aggregatorAddr, shadowAggregatorAddr := range aggregators {
@@ -88,6 +90,7 @@ func NewContractRelayer(
 		},
 		pairs:                  pairs,
 		lastProcessBlockHeight: startHeight,
+		batchSize:              batchSize,
 		recorder:               recorder,
 		sourceClient:           sourceClient,
 	}, nil
@@ -108,7 +111,6 @@ func (relayer *contractRelayer) pullData(
 	ctx context.Context,
 	tipHeight uint64,
 	sourceAggregatorAddr, shadowAggregatorAddr common.Address,
-	shadowAggregator *contract.ShadowAggregator,
 ) error {
 	value, err := relayer.recorder.Value(shadowAggregatorAddr.String())
 	if err != nil {
@@ -128,7 +130,7 @@ func (relayer *contractRelayer) pullData(
 	if tipHeight < startHeight {
 		return nil
 	}
-	endHeight := startHeight + 99
+	endHeight := startHeight + relayer.batchSize
 	if tipHeight < endHeight {
 		endHeight = tipHeight
 	}
@@ -178,7 +180,7 @@ func (relayer *contractRelayer) Produce(ctx context.Context) error {
 		return err
 	}
 	for _, p := range relayer.pairs {
-		if err := relayer.pullData(ctx, tipHeight, p.sourceAggregatorAddr, p.shadowAggregatorAddr, p.shadowAggregator); err != nil {
+		if err := relayer.pullData(ctx, tipHeight, p.sourceAggregatorAddr, p.shadowAggregatorAddr); err != nil {
 			fmt.Printf("failed to pull data for %s: %+v\n", p.shadowAggregatorAddr, err)
 			return err
 		}
@@ -188,7 +190,7 @@ func (relayer *contractRelayer) Produce(ctx context.Context) error {
 
 func (relayer *contractRelayer) consume(
 	ctx context.Context,
-	sourceAggregatorAddr, shadowAggregatorAddr common.Address,
+	sourceAggregatorAddr common.Address,
 	shadowAggregator *contract.ShadowAggregator,
 ) (bool, error) {
 	roundToConfirm, err := relayer.recorder.RoundToConfirm(sourceAggregatorAddr.String())
@@ -248,7 +250,7 @@ func (relayer *contractRelayer) consume(
 
 func (relayer *contractRelayer) Consume(ctx context.Context) error {
 	for _, p := range relayer.pairs {
-		relayed, err := relayer.consume(ctx, p.sourceAggregatorAddr, p.shadowAggregatorAddr, p.shadowAggregator)
+		relayed, err := relayer.consume(ctx, p.sourceAggregatorAddr, p.shadowAggregator)
 		if err != nil {
 			return err
 		}

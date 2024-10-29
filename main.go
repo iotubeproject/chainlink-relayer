@@ -24,6 +24,7 @@ type Configuration struct {
 	AggregatorPairs     map[string]string            `yaml:"aggregatorPairs"`
 	ExchangeAggregators map[string]map[string]string `yaml:"exchangeAggregators"`
 	HookUrl             string                       `yaml:"hookUrl"`
+	BatchSize           uint64                       `yaml:"batchSize"`
 }
 
 var defaultConfig = Configuration{}
@@ -82,6 +83,7 @@ func main() {
 		cfg.AggregatorPairs,
 		cfg.ExchangeAggregators,
 		cfg.HookUrl,
+		cfg.BatchSize,
 	)
 	if err != nil {
 		log.Fatalln(err)
